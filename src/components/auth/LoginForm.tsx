@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type FormEvent } from 'react';
@@ -7,8 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn } from 'lucide-react';
-// import { signInWithEmailAndPassword } from "firebase/auth";
-// import { auth } from "@/lib/firebase"; // Assuming firebase is configured
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { auth, db } from "@/lib/firebase"; // Assuming firebase is configured
+import { doc, getDoc } from "firebase/firestore";
 
 interface LoginFormProps {
   role: 'admin' | 'user';
@@ -24,52 +26,73 @@ export default function LoginForm({ role }: LoginFormProps) {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
+    console.log(`LoginForm: Attempting login for role: ${role} with email: ${email}`);
 
-    // Placeholder for Firebase Authentication
     try {
-      // const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // const user = userCredential.user;
-      // console.log(`${role} logged in:`, user);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      console.log(`LoginForm: Firebase Auth successful. User UID: ${user.uid}`);
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Fetch user role from Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      console.log(`LoginForm: Fetching user document from Firestore: users/${user.uid}`);
+      const userDoc = await getDoc(userDocRef);
 
-      // TODO: After successful Firebase login, fetch user role from Firestore
-      // and verify if it matches the `role` prop.
-      // For now, simulate success.
-      
-      const isRoleMatch = true; // This would be a check against Firestore user data
-      const mockUserName = email.split('@')[0];
-
-      if (isRoleMatch) {
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${mockUserName}! Redirecting...`,
-        });
-        if (role === 'admin') {
-          router.push('/admin/dashboard');
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        console.log("LoginForm: User document found in Firestore:", userData);
+        if (userData.role === role) {
+          console.log(`LoginForm: Role match successful (${userData.role}). Redirecting...`);
+          toast({
+            title: "Login Successful",
+            description: `Welcome back, ${userData.name || user.email}! Redirecting...`,
+          });
+          if (role === 'admin') {
+            router.push('/admin/dashboard');
+          } else {
+            router.push('/user/dashboard');
+          }
         } else {
-          router.push('/user/dashboard');
+          console.warn(`LoginForm: Role mismatch. Expected role: ${role}, but found: ${userData.role}. Signing out.`);
+          await signOut(auth); // Sign out if role doesn't match
+          toast({
+            title: "Login Failed",
+            description: `You do not have ${role} privileges. Access denied.`,
+            variant: "destructive",
+          });
         }
       } else {
-        // await auth.signOut(); // Sign out if role doesn't match
+        console.warn(`LoginForm: User document not found in Firestore for UID: ${user.uid}. Signing out.`);
+        await signOut(auth); // Sign out if user document not found in Firestore
         toast({
           title: "Login Failed",
-          description: `You do not have ${role} privileges.`,
+          description: "User profile not found in database. Please contact support.",
           variant: "destructive",
         });
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      // const errorCode = error.code;
-      // const errorMessage = error.message;
+      console.error("LoginForm: Login error:", error);
       let friendlyMessage = "An error occurred during login. Please try again.";
-      // if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
-      //   friendlyMessage = "Invalid email or password.";
-      // }
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            friendlyMessage = "Invalid email or password.";
+            break;
+          case 'auth/invalid-api-key':
+            friendlyMessage = "Invalid API Key. Please check Firebase configuration.";
+            break;
+          case 'auth/configuration-not-found':
+            friendlyMessage = "Firebase Auth configuration error. Ensure Identity Toolkit API is enabled.";
+            break;
+          default:
+            friendlyMessage = `Login failed: ${error.message}`;
+        }
+      }
       toast({
         title: "Login Failed",
-        description: friendlyMessage, // For security, generic message often better than specific error codes.
+        description: friendlyMessage,
         variant: "destructive",
       });
     } finally {
