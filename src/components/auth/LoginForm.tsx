@@ -41,7 +41,7 @@ export default function LoginForm({ role }: LoginFormProps) {
     }
 
     console.warn("LoginForm: If you see 'auth/invalid-credential' or similar auth errors, please ensure the user exists in Firebase Authentication (Authentication > Users tab in Firebase console) and that the email/password are correct. Also check if the Identity Toolkit API is enabled in Google Cloud, and that your .env.local file has the correct Firebase config, and the dev server was restarted.");
-
+    
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -116,9 +116,9 @@ export default function LoginForm({ role }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="email" className="font-body">Email Address</Label>
+        <Label htmlFor={`email-${role}`} className="font-body">Email Address</Label>
         <Input
-          id="email"
+          id={`email-${role}`} // Ensure unique ID if multiple login forms could exist on a page
           type="email"
           placeholder="you@pes.edu"
           value={email}
@@ -129,9 +129,9 @@ export default function LoginForm({ role }: LoginFormProps) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password" className="font-body">Password</Label>
+        <Label htmlFor={`password-${role}`} className="font-body">Password</Label>
         <Input
-          id="password"
+          id={`password-${role}`} // Ensure unique ID
           type="password"
           placeholder="••••••••"
           value={password}
