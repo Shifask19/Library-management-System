@@ -1,0 +1,73 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if a user is an admin
+    function isAdmin() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Helper function to check if a user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Authenticated users can read basic user data (e.g. for displaying names).
+      // Restrict if sensitive data is added.
+      allow read: if isAuthenticated();
+
+      // A user can create their own profile document upon sign-up.
+      // A user can update their own profile document (e.g., name).
+      // Admins can create/update any user document.
+      allow create: if request.auth.uid == userId || isAdmin();
+      allow update: if request.auth.uid == userId || isAdmin();
+      // Deletion of user documents is typically an admin-only action.
+      allow delete: if isAdmin();
+    }
+
+    // Books collection
+    match /books/{bookId} {
+      // All authenticated users can read book details.
+      allow read: if isAuthenticated();
+
+      // Creating new books:
+      // - Admins can create books with any status.
+      // - Authenticated users can create books ONLY if they are submitting a donation:
+      //   - status must be 'donated_pending_approval'.
+      //   - donatedBy.userId must be their own UID.
+      //   - donatedBy.userName and donatedBy.date must be provided.
+      //   - Users cannot set fields like 'issueDetails' or other admin-controlled status on creation.
+      allow create: if isAdmin() ||
+                       (isAuthenticated() &&
+                        request.resource.data.status == 'donated_pending_approval' &&
+                        request.resource.data.donatedBy.userId == request.auth.uid &&
+                        request.resource.data.donatedBy.userName is string &&
+                        request.resource.data.donatedBy.date is string &&
+                        !('issueDetails' in request.resource.data) &&
+                        (request.resource.data.status != 'issued' && request.resource.data.status != 'available' && request.resource.data.status != 'lost' && request.resource.data.status != 'maintenance' && request.resource.data.status != 'donated_approved')
+                       );
+
+      // Updating books:
+      // - Only admins can update books. This covers changing status for donations, issuing, returning, etc.
+      allow update: if isAdmin();
+
+      // Deleting books:
+      // - Only admins can delete books.
+      allow delete: if isAdmin();
+    }
+
+    // Example for a future transactions collection (if you add one)
+    // match /transactions/{transactionId} {
+    //   // Users can read their own transactions, admins can read all.
+    //   allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+    //   // Users can create their own transactions.
+    //   allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+    // }
+  }
+}
