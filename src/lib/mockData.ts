@@ -1,3 +1,4 @@
+
 import type { Book, User, Transaction } from '@/types';
 
 export const mockUsers: User[] = [
@@ -100,6 +101,54 @@ export const mockBooks: Book[] = [
     dataAiHint: 'algorithms textbook',
     donatedBy: { userId: 'user1', userName: 'Aisha Sharma', date: addDays(today, -30).toISOString() },
     description: 'A comprehensive guide to algorithms and data structures.'
+  },
+  {
+    id: 'book7',
+    title: 'Practical Electronics for Inventors',
+    author: 'Paul Scherz & Simon Monk',
+    isbn: '978-1259587542',
+    status: 'available',
+    category: 'Electronics',
+    publishedDate: '2016',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'electronics circuits',
+    description: 'A hands-on guide to electronics, from basic theory to circuit design.'
+  },
+  {
+    id: 'book8',
+    title: 'The Art of Electronics',
+    author: 'Paul Horowitz & Winfield Hill',
+    isbn: '978-0521809269',
+    status: 'available',
+    category: 'Electronics',
+    publishedDate: '2015',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'electronics reference',
+    description: 'A comprehensive and authoritative text on analog and digital electronics.'
+  },
+  {
+    id: 'book9',
+    title: 'Fundamentals of Microelectronics',
+    author: 'Behzad Razavi',
+    isbn: '978-1119523878',
+    status: 'maintenance',
+    category: 'Electronics',
+    publishedDate: '2020',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'microelectronics textbook',
+    description: 'Covers the analysis and design of electronic circuits, focusing on microelectronics.'
+  },
+  {
+    id: 'book10',
+    title: 'Digital Design and Computer Architecture',
+    author: 'David Harris & Sarah Harris',
+    isbn: '978-0128200622',
+    status: 'available',
+    category: 'Electronics',
+    publishedDate: '2021',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'digital design',
+    description: 'Takes the reader from the fundamentals of digital logic to the actual design of a MIPS processor.'
   }
 ];
 
