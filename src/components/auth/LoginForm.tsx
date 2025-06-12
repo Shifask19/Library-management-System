@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn } from 'lucide-react';
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { auth, db } from "@/lib/firebase"; // Assuming firebase is configured
+import { auth, db } from "@/lib/firebase.ts"; // Assuming firebase is configured
 import { doc, getDoc } from "firebase/firestore";
 
 interface LoginFormProps {
@@ -27,6 +27,17 @@ export default function LoginForm({ role }: LoginFormProps) {
     event.preventDefault();
     setIsLoading(true);
     console.log(`LoginForm: Attempting login for role: ${role} with email: ${email}`);
+
+    if (!auth || !db) {
+      console.error("LoginForm: Firebase auth or db is not initialized. Check firebase.ts and .env.local.");
+      toast({
+        title: "Configuration Error",
+        description: "Firebase is not configured correctly. Please contact support.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -81,10 +92,10 @@ export default function LoginForm({ role }: LoginFormProps) {
             friendlyMessage = "Invalid email or password.";
             break;
           case 'auth/invalid-api-key':
-            friendlyMessage = "Invalid API Key. Please check Firebase configuration.";
+            friendlyMessage = "Firebase API Key is invalid. Please check configuration.";
             break;
           case 'auth/configuration-not-found':
-            friendlyMessage = "Firebase Auth configuration error. Ensure Identity Toolkit API is enabled.";
+             friendlyMessage = "Firebase configuration not found. Please check Firebase setup and ensure Identity Toolkit API is enabled.";
             break;
           default:
             friendlyMessage = `Login failed: ${error.message}`;
