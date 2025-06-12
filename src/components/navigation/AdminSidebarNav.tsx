@@ -1,7 +1,8 @@
+
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/types";
 import { LayoutDashboard, BookMarked, Users, Gift, History, Settings } from "lucide-react";
@@ -10,20 +11,43 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 const adminNavItems: NavItem[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/dashboard/books", label: "Book Management", icon: BookMarked },
-  { href: "/admin/dashboard/users", label: "User Management", icon: Users },
-  { href: "/admin/dashboard/donations", label: "Donations", icon: Gift },
-  { href: "/admin/dashboard/transactions", label: "Transaction Log", icon: History },
-  { href: "/admin/dashboard/settings", label: "Settings", icon: Settings, disabled: true },
+  { href: "/admin/dashboard?tab=books", label: "Book Management", icon: BookMarked },
+  { href: "/admin/dashboard?tab=users", label: "User Management", icon: Users },
+  { href: "/admin/dashboard?tab=donations", label: "Donations", icon: Gift },
+  { href: "/admin/dashboard?tab=transactions", label: "Transaction Log", icon: History, disabled: true },
+  { href: "/admin/dashboard?tab=settings", label: "Settings", icon: Settings, disabled: true },
 ];
 
 export function AdminSidebarNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get('tab');
 
-  // For more precise active state, especially with nested routes
-  const isActive = (href: string) => {
-    if (href === "/admin/dashboard" && pathname !== "/admin/dashboard") return false;
-    return pathname.startsWith(href);
+  const isActive = (itemHref: string) => {
+    const [linkPath, queryString] = itemHref.split('?');
+    
+    if (pathname !== linkPath) {
+      return false; 
+    }
+
+    const defaultTab = "books";
+
+    // For the main "/admin/dashboard" link (no query params in its href)
+    if (!queryString) { 
+      // Active if currentTab is null (implicit default) or currentTab is the defaultTab
+      return !currentTab || currentTab === defaultTab;
+    }
+
+    // For links with query params, e.g., "/admin/dashboard?tab=users"
+    const linkQuery = new URLSearchParams(queryString);
+    const linkTab = linkQuery.get('tab');
+
+    if (linkTab === defaultTab) {
+        // Active if currentTab is defaultTab OR if currentTab is null (implicit default)
+        return currentTab === defaultTab || !currentTab;
+    }
+    // Active if currentTab matches linkTab
+    return currentTab === linkTab;
   };
 
   return (
@@ -31,7 +55,7 @@ export function AdminSidebarNav() {
       <nav className="flex flex-col gap-1 p-4">
         {adminNavItems.map((item) => (
           <Button
-            key={item.href}
+            key={item.href + item.label} // Ensure unique key
             asChild
             variant={isActive(item.href) ? "secondary" : "ghost"}
             className={cn(
