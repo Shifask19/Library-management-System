@@ -3,20 +3,25 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Default rule: Allow read by anyone, allow write only if authenticated.
-    // For actual file uploads (e.g., book covers, user profiles), you would create
-    // more specific rules for paths like:
-    // match /users/{userId}/{fileName} {
-    //   allow read;
-    //   allow write: if request.auth.uid == userId;
+    // By default, deny all reads and writes
+    // This is a secure starting point. Add specific rules below.
+
+    // Example: Allow authenticated users to read/write their own files in a specific folder
+    // match /userFiles/{userId}/{allPaths=**} {
+    //   allow read, write: if request.auth != null && request.auth.uid == userId;
     // }
-    // match /bookCovers/{bookId}/{fileName} {
-    //  allow read;
-    //  allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; // Only admins
+
+    // Example: Allow public read access to book cover images
+    // match /bookCovers/{allPaths=**} {
+    //  allow read: if true;
+    //  allow write: if request.auth != null; // Or only admins: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     // }
+
+    // Default: Deny all access to any other path
     match /{allPaths=**} {
-      allow read; // Public read access for now. Change to `if request.auth != null;` for authenticated read.
-      allow write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
+
+    
