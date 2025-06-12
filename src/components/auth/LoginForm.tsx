@@ -11,6 +11,7 @@ import { Loader2, LogIn } from 'lucide-react';
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth, db } from "@/lib/firebase.ts"; 
 import { doc, getDoc } from "firebase/firestore";
+import Link from 'next/link';
 
 interface LoginFormProps {
   role: 'admin' | 'user';
@@ -39,12 +40,13 @@ export default function LoginForm({ role }: LoginFormProps) {
       return;
     }
 
+    console.warn("LoginForm: If you see 'auth/invalid-credential' or similar auth errors, please ensure the user exists in Firebase Authentication (Authentication > Users tab in Firebase console) and that the email/password are correct. Also check if the Identity Toolkit API is enabled in Google Cloud, and that your .env.local file has the correct Firebase config, and the dev server was restarted.");
+
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       console.log(`LoginForm: Firebase Auth successful. User UID: ${user.uid}`);
 
-      // Fetch user role from Firestore
       const userDocRef = doc(db, "users", user.uid);
       console.log(`LoginForm: Fetching user document from Firestore: users/${user.uid}`);
       const userDoc = await getDoc(userDocRef);
@@ -147,10 +149,15 @@ export default function LoginForm({ role }: LoginFormProps) {
         )}
         Sign In as {role.charAt(0).toUpperCase() + role.slice(1)}
       </Button>
-       <div className="text-center text-sm">
-        <a href="#" className="font-medium text-primary hover:text-primary/80">
+       <div className="text-sm text-center space-y-2">
+        <a href="#" className="font-medium text-primary hover:text-primary/80 block">
           Forgot password?
         </a>
+        {role === 'user' && (
+           <Link href="/signup" className="font-medium text-primary hover:text-primary/80 block">
+            Don&apos;t have an account? Sign Up
+          </Link>
+        )}
       </div>
     </form>
   );
