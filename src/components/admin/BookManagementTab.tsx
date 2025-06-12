@@ -1,78 +1,172 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { PlusCircle, MoreHorizontal, Search, Edit2, Trash2, BookOpenCheck, Undo } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, Search, Edit2, Trash2, BookOpenCheck, Undo, Loader2 as SpinnerIcon } from 'lucide-react';
 import type { Book } from '@/types';
-import { mockBooks } from '@/lib/mockData'; // Using mock data
 import { StatusPill } from '@/components/shared/StatusPill';
 import { BookFormModal } from './BookFormModal';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmationDialog } from '@/components/shared/ConfirmationDialog';
 import Image from 'next/image';
+import { db } from '@/lib/firebase.ts';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { Skeleton } from '@/components/ui/skeleton';
 
-// TODO: Implement IssueBookModal and ReturnBookModal or integrate into actions
-// For now, issue/return will be simulated actions.
 
 export function BookManagementTab() {
-  const [books, setBooks] = useState<Book[]>(mockBooks);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const { toast } = useToast();
 
-  const handleSaveBook = async (bookData: Omit<Book, 'id'> | Book) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    if ('id' in bookData) { // Editing existing book
-      setBooks(prevBooks => prevBooks.map(b => b.id === bookData.id ? { ...b, ...bookData } : b));
-    } else { // Adding new book
-      const newBook = { ...bookData, id: `book${Date.now()}` } as Book; // Create new ID
-      setBooks(prevBooks => [newBook, ...prevBooks]);
+  const fetchBooks = useCallback(async () => {
+    if (!db) {
+      toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
+      setIsLoading(false);
+      return;
     }
-    setEditingBook(null);
+    setIsLoading(true);
+    try {
+      const booksCollection = collection(db, "books");
+      const q = query(booksCollection, orderBy("title")); // Example: order by title
+      const booksSnapshot = await getDocs(q);
+      const booksList = booksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Book));
+      setBooks(booksList);
+    } catch (error) {
+      console.error("Error fetching books:", error);
+      toast({ title: "Error Fetching Books", description: "Could not load books from the database.", variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchBooks();
+  }, [fetchBooks]);
+
+  const handleSaveBook = async (bookData: Omit<Book, 'id' | 'issueDetails' | 'donatedBy'> | Book) => {
+    if (!db) {
+      toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      if ('id' in bookData && bookData.id) { // Editing existing book
+        const bookRef = doc(db, "books", bookData.id);
+        // Ensure we don't overwrite nested objects like issueDetails or donatedBy unintentionally unless they are part of bookData
+        const { id, ...dataToUpdate } = bookData; 
+        await updateDoc(bookRef, dataToUpdate);
+        toast({ title: "Book Updated", description: `"${bookData.title}" has been successfully updated.` });
+      } else { // Adding new book
+        // For new books, issueDetails and donatedBy should typically be undefined or handled by specific actions (issue/donate)
+        const { issueDetails, donatedBy, ...newBookData } = bookData as Omit<Book, 'id'>;
+        await addDoc(collection(db, "books"), newBookData);
+        toast({ title: "Book Added", description: `"${bookData.title}" has been successfully added.` });
+      }
+      fetchBooks(); // Re-fetch books to update the list
+      setEditingBook(null);
+    } catch (error) {
+      console.error("Error saving book:", error);
+      toast({ title: "Error Saving Book", description: "An unexpected error occurred.", variant: "destructive" });
+    }
   };
 
-  const handleDeleteBook = async (bookId: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setBooks(prevBooks => prevBooks.filter(b => b.id !== bookId));
-    toast({ title: "Book Deleted", description: "The book has been removed from the library." });
+  const handleDeleteBook = async (bookId: string, bookTitle: string) => {
+    if (!db) {
+      toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, "books", bookId));
+      toast({ title: "Book Deleted", description: `"${bookTitle}" has been removed from the library.` });
+      fetchBooks(); 
+    } catch (error) {
+      console.error("Error deleting book:", error);
+      toast({ title: "Error Deleting Book", description: "Could not remove the book.", variant: "destructive" });
+    }
   };
   
-  const handleIssueBook = (bookId: string) => {
-    // This would open a modal to select user and set due date
-    // For now, just update status and add mock issueDetails
-    setBooks(prevBooks => prevBooks.map(b => b.id === bookId ? { 
-      ...b, 
-      status: 'issued', 
-      issueDetails: { 
-        userId: 'mockUser', 
-        userName: 'Mock User', 
-        issueDate: new Date().toISOString(), 
-        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // Due in 14 days
-      } 
-    } : b));
-    toast({ title: "Book Issued", description: "The book has been marked as issued." });
+  const handleIssueBook = async (bookId: string) => {
+     if (!db) {
+      toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
+      return;
+    }
+    // This would typically open a modal to select user and set due date
+    // For now, simulate with mock user and update status in Firestore
+    const bookRef = doc(db, "books", bookId);
+    const issueDetails = { 
+      userId: 'mockUserToReplace', // Replace with actual user ID from a modal/selection
+      userName: 'Mock User To Replace', // Replace with actual user name
+      issueDate: new Date().toISOString(), 
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // Due in 14 days
+    };
+    try {
+      await updateDoc(bookRef, { status: 'issued', issueDetails });
+      toast({ title: "Book Issued", description: "The book has been marked as issued." });
+      fetchBooks();
+    } catch (error) {
+      console.error("Error issuing book:", error);
+      toast({ title: "Error Issuing Book", description: "Could not issue the book.", variant: "destructive" });
+    }
   };
 
-  const handleReturnBook = (bookId: string) => {
-    setBooks(prevBooks => prevBooks.map(b => b.id === bookId ? { 
-      ...b, 
-      status: 'available', 
-      issueDetails: undefined 
-    } : b));
-    toast({ title: "Book Returned", description: "The book has been marked as available." });
+  const handleReturnBook = async (bookId: string) => {
+    if (!db) {
+      toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
+      return;
+    }
+    const bookRef = doc(db, "books", bookId);
+    try {
+      // When returning, we clear issueDetails. Firestore's `deleteField()` could be used for more robust clearing.
+      // For simplicity, setting to null or undefined is also common.
+      await updateDoc(bookRef, { status: 'available', issueDetails: null }); 
+      toast({ title: "Book Returned", description: "The book has been marked as available." });
+      fetchBooks();
+    } catch (error) {
+      console.error("Error returning book:", error);
+      toast({ title: "Error Returning Book", description: "Could not return the book.", variant: "destructive" });
+    }
   };
-
 
   const filteredBooks = books.filter(book =>
     book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
     book.isbn.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <Skeleton className="h-10 w-full max-w-sm" />
+          <Skeleton className="h-10 w-36" />
+        </div>
+        <div className="rounded-lg border shadow-sm overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {[1,2,3,4,5,6].map(i => <TableHead key={i}><Skeleton className="h-5 w-full" /></TableHead>)}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {[1,2,3,4,5].map((i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-12 w-10 rounded" /></TableCell>
+                  {[1,2,3,4,5].map(j => <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>)}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -143,7 +237,7 @@ export function BookManagementTab() {
                         <DropdownMenuItem onClick={() => setEditingBook(book)}>
                           <Edit2 className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
-                        {book.status === 'available' && (
+                        {(book.status === 'available' || book.status === 'donated_approved') && (
                           <DropdownMenuItem onClick={() => handleIssueBook(book.id)}>
                             <BookOpenCheck className="mr-2 h-4 w-4" /> Issue Book
                           </DropdownMenuItem>
@@ -162,7 +256,7 @@ export function BookManagementTab() {
                             }
                             title="Delete Book"
                             description={`Are you sure you want to delete "${book.title}"? This action cannot be undone.`}
-                            onConfirm={() => handleDeleteBook(book.id)}
+                            onConfirm={() => handleDeleteBook(book.id, book.title)}
                             variant="destructive"
                          />
                       </DropdownMenuContent>
@@ -173,7 +267,7 @@ export function BookManagementTab() {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
-                  No books found.
+                  No books found. {searchTerm && "Try a different search term."}
                 </TableCell>
               </TableRow>
             )}
@@ -184,41 +278,7 @@ export function BookManagementTab() {
         <BookFormModal
           book={editingBook}
           onSave={handleSaveBook}
-          // This modal is controlled by `editingBook` state, not a direct trigger button after initial open.
-          // The trigger logic would be slightly different here. A simple way is to make it always open when editingBook is not null.
-          // For ShadCN Dialog, it is better to manage its open state directly.
-          // The below is a placeholder for how one might handle opening it.
-          // It's better to use the Dialog's open/onOpenChange props directly tied to `editingBook !== null`.
-          // For this exercise, editingBook being set will cause a re-render and the below `BookFormModal` will be rendered.
-          // It needs an explicit `isOpen` prop for the dialog for proper control when using it this way.
-          // The current BookFormModal manages its own isOpen state internally. This will be refactored if needed.
-          // For now, assume a button "Edit" sets editingBook, and a new modal opens. The current BookFormModal would need to be adapted for external open control.
-          // A simpler setup: The "Edit" DropdownMenuItem could be the trigger for a *new* BookFormModal instance.
-          // Or, the BookFormModal itself should be rendered conditionally based on `editingBook` and handle its `open` prop.
-          // Let's assume the above DropdownMenuItem handles setting `editingBook`, which then makes this specific modal visible or configured.
-          // A better way:
-          // <Dialog open={!!editingBook} onOpenChange={(isOpen) => !isOpen && setEditingBook(null)}>
-          //   <BookFormModalContent book={editingBook} onSave={...} onCancel={() => setEditingBook(null)} />
-          // </Dialog>
-          // For now, the current BookFormModal is fine; clicking "Edit" then clicking "Add New Book" trigger is slightly awkward but functional for demo.
-          // The modal opens when the "Edit" button is clicked, through its DropdownMenuItem.
-          // To properly tie it to `editingBook`, the BookFormModal would need to accept an `isOpen` prop and `onOpenChange`.
-          // Let's simulate this by making the trigger button for the editing modal part of the row action.
-          // This is already handled by setEditingBook, and the BookFormModal takes a trigger.
-          // The provided structure has the modal outside the table. When `editingBook` is set, it will be passed to this instance.
-          // The trigger of this *instance* of BookFormModal isn't used. It's the *presence* of `editingBook` that matters.
-          // So this is effectively a modal whose *content* is configured by `editingBook`, but it's always the same *modal component*.
-          // The trigger logic in BookFormModal needs to be adapted if we want to open it programmatically.
-          // One way is to pass an `initialOpen` prop to BookFormModal when `editingBook` is set.
-          // For now: clicking "Edit" sets editingBook, which re-renders this tab, passing the book to the modal.
-          // The modal still needs its own trigger.
-          // This requires BookFormModal to be visible and its trigger clicked if editingBook is set.
-          // This is not ideal. A better way:
-          // 1. Have one BookFormModal in the BookManagementTab.
-          // 2. Its 'open' state is controlled by `isModalOpen` and `editingBook`.
-          // 3. "Add" button sets `editingBook` to null and `isModalOpen` to true.
-          // 4. "Edit" button sets `editingBook` to the book and `isModalOpen` to true.
-          triggerButton={<div/>} // Dummy trigger, modal is controlled by `editingBook` presence
+          triggerButton={<div style={{display: 'none'}} />} // Modal is controlled by editingBook state. This is a conceptual trigger.
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,13 +14,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LogOut, Settings, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-// import { signOut } from "firebase/auth";
-// import { auth } from "@/lib/firebase"; // Assuming firebase is configured
+import { signOut as firebaseSignOut } from "firebase/auth";
+import { auth } from "@/lib/firebase.ts"; 
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@/types";
+import { sampleAdmin } from "@/types"; // Using sampleAdmin as a placeholder type, actual user is dynamic
 
 interface UserMenuProps {
-  user: User | null; // Pass user object, or null if not logged in
+  user: User | null; 
 }
 
 export function UserMenu({ user }: UserMenuProps) {
@@ -27,10 +29,14 @@ export function UserMenu({ user }: UserMenuProps) {
   const { toast } = useToast();
 
   const handleLogout = async () => {
+    if (!auth) {
+      toast({ title: "Logout Failed", description: "Firebase not configured.", variant: "destructive" });
+      return;
+    }
     try {
-      // await signOut(auth);
+      await firebaseSignOut(auth);
       toast({ title: "Logged Out", description: "You have been successfully logged out." });
-      router.push("/"); // Redirect to landing page after logout
+      router.push("/"); 
     } catch (error) {
       console.error("Logout error:", error);
       toast({ title: "Logout Failed", description: "Could not log out. Please try again.", variant: "destructive" });
@@ -38,7 +44,6 @@ export function UserMenu({ user }: UserMenuProps) {
   };
 
   if (!user) {
-    // Optionally, render a login button or nothing if user is not available
     return null; 
   }
 
@@ -76,7 +81,7 @@ export function UserMenu({ user }: UserMenuProps) {
             <UserCircle className="mr-2 h-4 w-4" />
             <span>Profile</span>
           </DropdownMenuItem>
-          <DropdownMenuItem disabled> {/* Placeholder for settings */}
+          <DropdownMenuItem disabled> 
             <Settings className="mr-2 h-4 w-4" />
             <span>Settings</span>
           </DropdownMenuItem>

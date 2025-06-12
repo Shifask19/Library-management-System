@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, type FormEvent } from "react";
@@ -21,9 +22,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 interface BookFormModalProps {
-  book?: Book | null; // Pass book data for editing, null/undefined for adding
+  book?: Book | null; 
   triggerButton: React.ReactNode;
-  onSave: (bookData: Omit<Book, 'id'> | Book) => Promise<void>; // Callback after saving
+  onSave: (bookData: Omit<Book, 'id' | 'issueDetails' | 'donatedBy'> | Book) => Promise<void>; 
 }
 
 const bookStatuses: Book['status'][] = ['available', 'maintenance', 'lost'];
@@ -52,9 +53,15 @@ export function BookFormModal({ book, triggerButton, onSave }: BookFormModalProp
       setPublishedDate(book.publishedDate || "");
       setDescription(book.description || "");
       setCoverImageUrl(book.coverImageUrl || "");
-      setStatus(book.status === 'donated_pending_approval' || book.status === 'donated_approved' ? 'available' : book.status);
+      // Don't allow direct edit of 'donated_pending_approval' or 'donated_approved' status here.
+      // If book is donated, set default status to 'available' for editing general details.
+      // Actual approval/rejection is handled elsewhere.
+      if (book.status === 'donated_pending_approval' || book.status === 'donated_approved') {
+        setStatus('available'); // Or keep its original status if editing non-donated specific fields is intended
+      } else {
+        setStatus(book.status);
+      }
     } else if (!book && isOpen) {
-      // Reset form for adding new book
       setTitle("");
       setAuthor("");
       setIsbn("");
@@ -70,8 +77,7 @@ export function BookFormModal({ book, triggerButton, onSave }: BookFormModalProp
     e.preventDefault();
     setIsLoading(true);
     
-    const bookData: Omit<Book, 'id'> | Book = {
-      ...(book ? { id: book.id } : {}), // Include id if editing
+    const baseBookData = {
       title,
       author,
       isbn,
@@ -80,19 +86,29 @@ export function BookFormModal({ book, triggerButton, onSave }: BookFormModalProp
       description,
       coverImageUrl,
       status,
-      // issueDetails and donatedBy should be handled by issue/donate logic, not directly in this form
-      // For editing, ensure existing issueDetails/donatedBy are preserved if not modifying status
-      ...(book?.issueDetails && status === 'issued' && { issueDetails: book.issueDetails }),
-      ...(book?.donatedBy && (status === 'donated_pending_approval' || status === 'donated_approved') && { donatedBy: book.donatedBy }),
     };
 
+    let bookDataToSave: Omit<Book, 'id' | 'issueDetails' | 'donatedBy'> | Book;
+
+    if (book) { // Editing existing book
+      bookDataToSave = {
+        ...book, // Preserve existing fields like id, issueDetails, donatedBy
+        ...baseBookData, // Override with form values
+        // Ensure status is correctly set, especially if it was 'donated_pending_approval'
+        // The onSave function in BookManagementTab should handle Firestore update logic correctly.
+      };
+    } else { // Adding new book
+      bookDataToSave = baseBookData;
+    }
+    
+
     try {
-      await onSave(bookData as Book); // Type assertion for simplicity, onSave should handle Omit<Book, 'id'> for new books
+      await onSave(bookDataToSave); 
       toast({
         title: `Book ${book ? 'Updated' : 'Added'}`,
         description: `"${title}" has been successfully ${book ? 'updated' : 'added'}.`,
       });
-      setIsOpen(false); // Close dialog on success
+      setIsOpen(false); 
     } catch (error) {
       console.error("Error saving book:", error);
       toast({
@@ -162,7 +178,7 @@ export function BookFormModal({ book, triggerButton, onSave }: BookFormModalProp
           </div>
            <div className="space-y-2">
             <Label htmlFor="coverImageUrl">Cover Image URL</Label>
-            <Input id="coverImageUrl" value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} placeholder="https://example.com/cover.jpg" />
+            <Input id="coverImageUrl" value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} placeholder="https://placehold.co/cover.jpg" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>

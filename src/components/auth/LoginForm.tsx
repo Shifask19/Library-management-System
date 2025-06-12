@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, LogIn } from 'lucide-react';
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { auth, db } from "@/lib/firebase.ts"; // Assuming firebase is configured
+import { auth, db } from "@/lib/firebase.ts"; 
 import { doc, getDoc } from "firebase/firestore";
 
 interface LoginFormProps {
@@ -65,7 +65,7 @@ export default function LoginForm({ role }: LoginFormProps) {
           }
         } else {
           console.warn(`LoginForm: Role mismatch. Expected role: ${role}, but found: ${userData.role}. Signing out.`);
-          await signOut(auth); // Sign out if role doesn't match
+          await signOut(auth); 
           toast({
             title: "Login Failed",
             description: `You do not have ${role} privileges. Access denied.`,
@@ -74,7 +74,7 @@ export default function LoginForm({ role }: LoginFormProps) {
         }
       } else {
         console.warn(`LoginForm: User document not found in Firestore for UID: ${user.uid}. Signing out.`);
-        await signOut(auth); // Sign out if user document not found in Firestore
+        await signOut(auth); 
         toast({
           title: "Login Failed",
           description: "User profile not found in database. Please contact support.",
@@ -92,10 +92,10 @@ export default function LoginForm({ role }: LoginFormProps) {
             friendlyMessage = "Invalid email or password.";
             break;
           case 'auth/invalid-api-key':
-            friendlyMessage = "Firebase API Key is invalid. Please check configuration.";
+            friendlyMessage = "Firebase API Key is invalid. Please check configuration in .env.local and ensure server is restarted.";
             break;
           case 'auth/configuration-not-found':
-             friendlyMessage = "Firebase configuration not found. Please check Firebase setup and ensure Identity Toolkit API is enabled.";
+             friendlyMessage = "Firebase configuration not found. Please check Firebase setup, ensure Identity Toolkit API is enabled in Google Cloud, and restart server.";
             break;
           default:
             friendlyMessage = `Login failed: ${error.message}`;
@@ -147,8 +147,7 @@ export default function LoginForm({ role }: LoginFormProps) {
         )}
         Sign In as {role.charAt(0).toUpperCase() + role.slice(1)}
       </Button>
-       {/* Basic link for forgot password - non-functional for now */}
-      <div className="text-center text-sm">
+       <div className="text-center text-sm">
         <a href="#" className="font-medium text-primary hover:text-primary/80">
           Forgot password?
         </a>
