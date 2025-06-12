@@ -1,0 +1,106 @@
+"use client";
+
+import { useState } from 'react';
+import type { Book } from '@/types';
+import { mockBooks } from '@/lib/mockData'; // Using mock data
+import { BookCard } from '@/components/shared/BookCard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertTriangle, BookOpenCheck, Search } from 'lucide-react';
+
+export function IssuedBooksTab() {
+  // Assuming current user ID is 'user1' for mock data filtering
+  const currentUserId = 'user1'; 
+  const [userBooks, setUserBooks] = useState<Book[]>(
+    mockBooks.filter(book => book.status === 'issued' && book.issueDetails?.userId === currentUserId)
+  );
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<'all' | 'due_soon' | 'overdue'>('all');
+
+  const handleRenewBook = (bookId: string) => {
+    // Placeholder for renew functionality
+    console.log(`Renew request for book ID: ${bookId}`);
+    // In a real app, this would make an API call
+    alert(`Renew functionality for book ${bookId} is not yet implemented.`);
+  };
+
+  const filteredAndSortedBooks = userBooks
+    .filter(book => {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      const matchesSearch = book.title.toLowerCase().includes(lowerSearchTerm) ||
+                            book.author.toLowerCase().includes(lowerSearchTerm);
+
+      if (!matchesSearch) return false;
+
+      if (filter === 'all') return true;
+      
+      const dueDate = new Date(book.issueDetails!.dueDate);
+      const today = new Date();
+      const diffTime = dueDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (filter === 'overdue') return diffDays < 0;
+      if (filter === 'due_soon') return diffDays >= 0 && diffDays <= 3; // Due in 3 days or less
+      return true;
+    })
+    .sort((a, b) => new Date(a.issueDetails!.dueDate).getTime() - new Date(b.issueDetails!.dueDate).getTime()); // Sort by due date ascending
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search your issued books..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={filter} onValueChange={(value) => setFilter(value as any)}>
+          <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Books</SelectItem>
+            <SelectItem value="due_soon">Due Soon</SelectItem>
+            <SelectItem value="overdue">Overdue</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filteredAndSortedBooks.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredAndSortedBooks.map(book => (
+            <BookCard 
+              key={book.id} 
+              book={book}
+              actionLabel="Request Renewal"
+              onAction={() => handleRenewBook(book.id)}
+              // Disable renewal if overdue? Or based on library policy.
+              // actionDisabled={new Date(book.issueDetails!.dueDate) < new Date()} 
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          {searchTerm || filter !== 'all' ? (
+            <>
+              <Search className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold">No Books Found</h3>
+              <p className="text-muted-foreground">No books match your current search or filter.</p>
+            </>
+          ) : (
+            <>
+              <BookOpenCheck className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold">No Books Issued</h3>
+              <p className="text-muted-foreground">You currently have no books issued from the library.</p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
