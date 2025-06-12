@@ -14,8 +14,8 @@ const adminNavItems: NavItem[] = [
   { href: "/admin/dashboard?tab=books", label: "Book Management", icon: BookMarked },
   { href: "/admin/dashboard?tab=users", label: "User Management", icon: Users },
   { href: "/admin/dashboard?tab=donations", label: "Donations", icon: Gift },
-  { href: "/admin/dashboard?tab=transactions", label: "Transaction Log", icon: History, disabled: true },
-  { href: "/admin/dashboard?tab=settings", label: "Settings", icon: Settings, disabled: true },
+  { href: "/admin/dashboard?tab=transactions", label: "Transaction Log", icon: History },
+  { href: "/admin/dashboard?tab=settings", label: "Settings", icon: Settings },
 ];
 
 export function AdminSidebarNav() {
@@ -30,23 +30,25 @@ export function AdminSidebarNav() {
       return false; 
     }
 
-    const defaultTab = "books";
+    const defaultTabForDashboard = "books"; // Assuming 'books' is the default when no tab is specified for /admin/dashboard
 
-    // For the main "/admin/dashboard" link (no query params in its href)
+    // For the main "/admin/dashboard" link (no query params in its href - represents the dashboard overview or first tab)
     if (!queryString) { 
-      // Active if currentTab is null (implicit default) or currentTab is the defaultTab
-      return !currentTab || currentTab === defaultTab;
+      // Active if currentTab is null (no specific tab selected, so dashboard overview is active) 
+      // OR if currentTab is the defaultTabForDashboard (explicitly on the default tab)
+      return !currentTab || currentTab === defaultTabForDashboard;
     }
 
     // For links with query params, e.g., "/admin/dashboard?tab=users"
     const linkQuery = new URLSearchParams(queryString);
     const linkTab = linkQuery.get('tab');
 
-    if (linkTab === defaultTab) {
-        // Active if currentTab is defaultTab OR if currentTab is null (implicit default)
-        return currentTab === defaultTab || !currentTab;
+    // If the link's tab is the default tab, it's active if currentTab is the default OR if currentTab is null (implicit default)
+    if (linkTab === defaultTabForDashboard) {
+        return currentTab === defaultTabForDashboard || !currentTab;
     }
-    // Active if currentTab matches linkTab
+    
+    // For any other tab, it's active only if currentTab matches linkTab
     return currentTab === linkTab;
   };
 
