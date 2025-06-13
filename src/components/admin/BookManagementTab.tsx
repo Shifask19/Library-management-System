@@ -151,14 +151,14 @@ export function BookManagementTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                {[1,2,3,4,5,6].map(i => <TableHead key={i}><Skeleton className="h-5 w-full" /></TableHead>)}
+                {[1,2,3,4,5,6,7,8].map(i => <TableHead key={i}><Skeleton className="h-5 w-full" /></TableHead>)}
               </TableRow>
             </TableHeader>
             <TableBody>
               {[1,2,3,4,5].map((i) => (
                 <TableRow key={i}>
                   <TableCell><Skeleton className="h-12 w-10 rounded" /></TableCell>
-                  {[1,2,3,4,5].map(j => <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>)}
+                  {[1,2,3,4,5,6,7].map(j => <TableCell key={j}><Skeleton className="h-5 w-full" /></TableCell>)}
                 </TableRow>
               ))}
             </TableBody>
@@ -201,6 +201,8 @@ export function BookManagementTab() {
               <TableHead>Author</TableHead>
               <TableHead>ISBN</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Issued To</TableHead>
+              <TableHead>Due Date</TableHead>
               <TableHead className="text-right w-[100px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -223,6 +225,16 @@ export function BookManagementTab() {
                   <TableCell>{book.isbn}</TableCell>
                   <TableCell>
                     <StatusPill book={book} />
+                  </TableCell>
+                  <TableCell>
+                    {book.status === 'issued' && book.issueDetails?.userName 
+                      ? book.issueDetails.userName 
+                      : 'N/A'}
+                  </TableCell>
+                  <TableCell>
+                    {book.status === 'issued' && book.issueDetails?.dueDate 
+                      ? new Date(book.issueDetails.dueDate).toLocaleDateString() 
+                      : 'N/A'}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -266,7 +278,7 @@ export function BookManagementTab() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   No books found. {searchTerm && "Try a different search term."}
                 </TableCell>
               </TableRow>
