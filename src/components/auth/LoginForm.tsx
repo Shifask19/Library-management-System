@@ -29,6 +29,10 @@ export default function LoginForm({ role }: LoginFormProps) {
     setIsLoading(true);
     console.log(`LoginForm: Attempting login for role: ${role} with email: ${email}`);
 
+    console.error(
+      `LoginForm DEBUG: If you encounter 'auth/invalid-credential', it means the email/password is incorrect, the user does not exist in Firebase Auth, or the account is disabled. Please VERIFY in the Firebase Console (Authentication > Users). Also, ensure the Identity Toolkit API is enabled in Google Cloud.`
+    );
+
     if (!auth || !db) {
       console.error("LoginForm: Firebase auth or db is not initialized. Check firebase.ts and .env.local.");
       toast({
@@ -39,8 +43,6 @@ export default function LoginForm({ role }: LoginFormProps) {
       setIsLoading(false);
       return;
     }
-
-    console.warn("LoginForm: If you see 'auth/invalid-credential' or similar auth errors, please ensure the user exists in Firebase Authentication (Authentication > Users tab in Firebase console) and that the email/password are correct. Also check if the Identity Toolkit API is enabled in Google Cloud, and that your .env.local file has the correct Firebase config, and the dev server was restarted.");
     
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -91,7 +93,7 @@ export default function LoginForm({ role }: LoginFormProps) {
           case 'auth/user-not-found':
           case 'auth/wrong-password':
           case 'auth/invalid-credential':
-            friendlyMessage = "Invalid email or password.";
+            friendlyMessage = "Invalid email or password. Please check your credentials and try again. Ensure the user exists and is enabled in Firebase.";
             break;
           case 'auth/invalid-api-key':
             friendlyMessage = "Firebase API Key is invalid. Please check configuration in .env.local and ensure server is restarted.";
@@ -118,7 +120,7 @@ export default function LoginForm({ role }: LoginFormProps) {
       <div className="space-y-2">
         <Label htmlFor={`email-${role}`} className="font-body">Email Address</Label>
         <Input
-          id={`email-${role}`} // Ensure unique ID if multiple login forms could exist on a page
+          id={`email-${role}`} 
           type="email"
           placeholder="you@pes.edu"
           value={email}
@@ -131,7 +133,7 @@ export default function LoginForm({ role }: LoginFormProps) {
       <div className="space-y-2">
         <Label htmlFor={`password-${role}`} className="font-body">Password</Label>
         <Input
-          id={`password-${role}`} // Ensure unique ID
+          id={`password-${role}`} 
           type="password"
           placeholder="••••••••"
           value={password}
