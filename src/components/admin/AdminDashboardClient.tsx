@@ -5,9 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookManagementTab } from "./BookManagementTab";
 import { UserManagementTab } from "./UserManagementTab";
 import { DonationApprovalTab } from "./DonationApprovalTab";
-// Placeholder for TransactionLogTab
-// import { TransactionLogTab } from "./TransactionLogTab";
-import { BookMarked, Users, Gift, History, Settings } from 'lucide-react'; // Added Settings icon
+import { TransactionLogTab } from "./TransactionLogTab"; // Changed
+import { BookMarked, Users, Gift, History, Settings } from 'lucide-react';
 import { PageHeader } from "../shared/PageHeader";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -20,7 +19,6 @@ export function AdminDashboardClient() {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
-    // Ensure activeTab state is updated if query param changes externally
     const tabFromQuery = searchParams.get('tab') || 'books';
     if (tabFromQuery !== activeTab) {
       setActiveTab(tabFromQuery);
@@ -39,7 +37,7 @@ export function AdminDashboardClient() {
         description="Oversee and manage all library operations."
       />
       <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-2 h-auto p-1"> {/* Updated grid-cols for 5 items */}
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 gap-2 h-auto p-1">
           <TabsTrigger value="books" className="flex-col sm:flex-row h-auto py-2 sm:py-1.5 gap-1 sm:gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <BookMarked className="h-5 w-5" /> <span>Book Management</span>
           </TabsTrigger>
@@ -67,11 +65,7 @@ export function AdminDashboardClient() {
           <DonationApprovalTab />
         </TabsContent>
         <TabsContent value="transactions" className="mt-6">
-          <div className="text-center py-12">
-            <History className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold">Transaction Log</h3>
-            <p className="text-muted-foreground">This feature is coming soon.</p>
-          </div>
+          <TransactionLogTab />
         </TabsContent>
         <TabsContent value="settings" className="mt-6">
           <div className="text-center py-12">

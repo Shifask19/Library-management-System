@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type FormEvent } from 'react';
@@ -9,26 +10,83 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Gift, Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import { db } from '@/lib/firebase.ts';
+import { collection, addDoc } from "firebase/firestore";
+import type { User, Book } from '@/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export function DonateBookTab() {
+
+interface DonateBookTabProps {
+  currentUser: User | null;
+}
+
+const bookCategories = ["Computer Science", "Fiction", "Science", "History", "Mathematics", "Engineering", "Literature", "Thriller", "Physics", "Electronics", "Other"];
+
+// Helper function to log transactions
+async function logTransaction(transactionData: Omit<import('@/types').Transaction, 'id' | 'timestamp'>) {
+  if (!db) return;
+  try {
+    await addDoc(collection(db, "transactions"), {
+      ...transactionData,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error logging transaction:", error);
+  }
+}
+
+export function DonateBookTab({ currentUser }: DonateBookTabProps) {
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [isbn, setIsbn] = useState('');
-  const [edition, setEdition] = useState(''); // Or publishedYear
-  const [condition, setCondition] = useState(''); // e.g., New, Good, Fair
-  const [notes, setNotes] = useState('');
+  const [category, setCategory] = useState("");
+  const [publishedDate, setPublishedDate] = useState('');
+  const [description, setDescription] = useState('');
+  const [coverImageUrl, setCoverImageUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!currentUser) {
+      toast({ title: "Login Required", description: "You must be logged in to donate a book.", variant: "destructive" });
+      return;
+    }
+    if (!db) {
+      toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
+      return;
+    }
     setIsLoading(true);
 
-    // Simulate API call to submit donation request
+    const donationDate = new Date().toISOString();
+    const newBookData: Omit<Book, 'id'> = {
+      title,
+      author,
+      isbn,
+      category,
+      publishedDate,
+      description,
+      coverImageUrl: coverImageUrl || `https://placehold.co/300x450.png?text=${encodeURIComponent(title)}`,
+      status: 'donated_pending_approval',
+      donatedBy: {
+        userId: currentUser.id,
+        userName: currentUser.name || currentUser.email || 'Anonymous User',
+        date: donationDate,
+      },
+    };
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("Donation Submitted:", { title, author, isbn, edition, condition, notes });
+      const docRef = await addDoc(collection(db, "books"), newBookData);
       
+      await logTransaction({
+        bookId: docRef.id,
+        bookTitle: title,
+        userId: currentUser.id,
+        userName: currentUser.name || currentUser.email || 'Anonymous User',
+        type: 'donate_request',
+        notes: `User submitted donation for '${title}'`
+      });
+
       toast({
         title: "Donation Submitted",
         description: `Thank you for donating "${title}"! Your request is pending approval.`,
@@ -37,9 +95,10 @@ export function DonateBookTab() {
       setTitle('');
       setAuthor('');
       setIsbn('');
-      setEdition('');
-      setCondition('');
-      setNotes('');
+      setCategory('');
+      setPublishedDate('');
+      setDescription('');
+      setCoverImageUrl('');
     } catch (error) {
       console.error("Donation submission error:", error);
       toast({
@@ -64,34 +123,45 @@ export function DonateBookTab() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="title">Book Title</Label>
-                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isLoading} />
+                <Label htmlFor="title-donate">Book Title</Label>
+                <Input id="title-donate" value={title} onChange={(e) => setTitle(e.target.value)} required disabled={isLoading} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="author">Author(s)</Label>
-                <Input id="author" value={author} onChange={(e) => setAuthor(e.target.value)} required disabled={isLoading} />
+                <Label htmlFor="author-donate">Author(s)</Label>
+                <Input id="author-donate" value={author} onChange={(e) => setAuthor(e.target.value)} required disabled={isLoading} />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="isbn">ISBN (Optional)</Label>
-                <Input id="isbn" value={isbn} onChange={(e) => setIsbn(e.target.value)} placeholder="e.g., 978-3-16-148410-0" disabled={isLoading} />
+                <Label htmlFor="isbn-donate">ISBN</Label>
+                <Input id="isbn-donate" value={isbn} onChange={(e) => setIsbn(e.target.value)} placeholder="e.g., 978-3-16-148410-0" required disabled={isLoading} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edition">Edition / Published Year</Label>
-                <Input id="edition" value={edition} onChange={(e) => setEdition(e.target.value)} placeholder="e.g., 3rd Edition or 2021" required disabled={isLoading} />
+                <Label htmlFor="publishedDate-donate">Published Year</Label>
+                <Input id="publishedDate-donate" type="text" value={publishedDate} onChange={(e) => setPublishedDate(e.target.value)} placeholder="e.g., 2021" required disabled={isLoading} />
               </div>
             </div>
              <div className="space-y-2">
-                <Label htmlFor="condition">Book Condition</Label>
-                <Input id="condition" value={condition} onChange={(e) => setCondition(e.target.value)} placeholder="e.g., Like New, Good, Fair with notes" required disabled={isLoading} />
+                <Label htmlFor="category-donate">Category</Label>
+                 <Select value={category} onValueChange={setCategory} disabled={isLoading}>
+                    <SelectTrigger id="category-donate">
+                        <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {bookCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                    </SelectContent>
+                </Select>
               </div>
             <div className="space-y-2">
-              <Label htmlFor="notes">Additional Notes (Optional)</Label>
-              <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any specific details about the book or donation." rows={3} disabled={isLoading} />
+                <Label htmlFor="coverImageUrl-donate">Cover Image URL (Optional)</Label>
+                <Input id="coverImageUrl-donate" value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} placeholder="https://example.com/cover.jpg" disabled={isLoading} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description-donate">Description / Condition Notes</Label>
+              <Textarea id="description-donate" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description of the book and its condition." rows={3} required disabled={isLoading} />
             </div>
              <CardFooter className="p-0 pt-4">
-                <Button type="submit" className="w-full text-base" disabled={isLoading}>
+                <Button type="submit" className="w-full text-base" disabled={isLoading || !currentUser}>
                 {isLoading ? (
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 ) : (

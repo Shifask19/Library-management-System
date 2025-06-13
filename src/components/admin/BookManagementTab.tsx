@@ -7,16 +7,40 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PlusCircle, MoreHorizontal, Search, Edit2, Trash2, BookOpenCheck, Undo, Loader2 as SpinnerIcon } from 'lucide-react';
-import type { Book } from '@/types';
+import type { Book, User } from '@/types';
 import { StatusPill } from '@/components/shared/StatusPill';
 import { BookFormModal } from './BookFormModal';
 import { useToast } from '@/hooks/use-toast';
 import { ConfirmationDialog } from '@/components/shared/ConfirmationDialog';
 import Image from 'next/image';
 import { db } from '@/lib/firebase.ts';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, writeBatch, getDoc } from "firebase/firestore";
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from '@/components/ui/label';
+import { sampleAdmin } from '@/types'; // For admin name in transactions
 
+// Helper function to log transactions
+async function logTransaction(transactionData: Omit<import('@/types').Transaction, 'id' | 'timestamp'>) {
+  if (!db) return;
+  try {
+    await addDoc(collection(db, "transactions"), {
+      ...transactionData,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error logging transaction:", error);
+    // Optionally, inform admin if logging fails, but don't block main action
+  }
+}
 
 export function BookManagementTab() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -24,6 +48,10 @@ export function BookManagementTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const { toast } = useToast();
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [issuingBook, setIssuingBook] = useState<Book | null>(null);
+  const [issueToUserId, setIssueToUserId] = useState('');
+  const [issueToUserName, setIssueToUserName] = useState(''); // Added for simpler name storage
 
   const fetchBooks = useCallback(async () => {
     if (!db) {
@@ -34,7 +62,7 @@ export function BookManagementTab() {
     setIsLoading(true);
     try {
       const booksCollection = collection(db, "books");
-      const q = query(booksCollection, orderBy("title")); // Example: order by title
+      const q = query(booksCollection, orderBy("title"));
       const booksSnapshot = await getDocs(q);
       const booksList = booksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Book));
       setBooks(booksList);
@@ -57,19 +85,17 @@ export function BookManagementTab() {
     }
     
     try {
-      if ('id' in bookData && bookData.id) { // Editing existing book
+      if ('id' in bookData && bookData.id) {
         const bookRef = doc(db, "books", bookData.id);
-        // Ensure we don't overwrite nested objects like issueDetails or donatedBy unintentionally unless they are part of bookData
         const { id, ...dataToUpdate } = bookData; 
         await updateDoc(bookRef, dataToUpdate);
         toast({ title: "Book Updated", description: `"${bookData.title}" has been successfully updated.` });
-      } else { // Adding new book
-        // For new books, issueDetails and donatedBy should typically be undefined or handled by specific actions (issue/donate)
+      } else {
         const { issueDetails, donatedBy, ...newBookData } = bookData as Omit<Book, 'id'>;
         await addDoc(collection(db, "books"), newBookData);
         toast({ title: "Book Added", description: `"${bookData.title}" has been successfully added.` });
       }
-      fetchBooks(); // Re-fetch books to update the list
+      fetchBooks();
       setEditingBook(null);
     } catch (error) {
       console.error("Error saving book:", error);
@@ -92,41 +118,87 @@ export function BookManagementTab() {
     }
   };
   
-  const handleIssueBook = async (bookId: string) => {
-     if (!db) {
-      toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
+  const handleConfirmIssueBook = async () => {
+    if (!db || !issuingBook || !issueToUserId) {
+      toast({ title: "Error", description: "Required information is missing to issue the book.", variant: "destructive" });
       return;
     }
-    // This would typically open a modal to select user and set due date
-    // For now, simulate with mock user and update status in Firestore
-    const bookRef = doc(db, "books", bookId);
+
+    // Attempt to fetch user's name from 'users' collection
+    let finalUserName = issueToUserName || 'Unknown User'; // Default if manual input is empty or not used
+    if (!issueToUserName && issueToUserId) { // If name not manually entered, try fetching
+        try {
+            const userDocRef = doc(db, "users", issueToUserId);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                finalUserName = userDocSnap.data().name || userDocSnap.data().email || 'User';
+            } else {
+                 toast({ title: "Warning", description: `User with ID ${issueToUserId} not found in users collection. Using provided/default name.`, variant: "default" });
+            }
+        } catch (userFetchError) {
+            console.error("Error fetching user details:", userFetchError);
+            toast({ title: "Warning", description: "Could not verify user details. Using provided/default name.", variant: "default" });
+        }
+    }
+
+
+    const bookRef = doc(db, "books", issuingBook.id);
+    const issueDate = new Date();
+    const dueDate = new Date(issueDate);
+    dueDate.setDate(issueDate.getDate() + 14); // Due in 14 days
+
     const issueDetails = { 
-      userId: 'mockUserToReplace', // Replace with actual user ID from a modal/selection
-      userName: 'Mock User To Replace', // Replace with actual user name
-      issueDate: new Date().toISOString(), 
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // Due in 14 days
+      userId: issueToUserId,
+      userName: finalUserName,
+      issueDate: issueDate.toISOString(), 
+      dueDate: dueDate.toISOString()
     };
+    
     try {
       await updateDoc(bookRef, { status: 'issued', issueDetails });
-      toast({ title: "Book Issued", description: "The book has been marked as issued." });
+      
+      await logTransaction({
+        bookId: issuingBook.id,
+        bookTitle: issuingBook.title,
+        userId: issueToUserId,
+        userName: finalUserName, // Use the fetched/entered name
+        type: 'issue',
+        dueDate: dueDate.toISOString(),
+        notes: `Issued by Admin: ${sampleAdmin.name || 'Admin'}`
+      });
+
+      toast({ title: "Book Issued", description: `"${issuingBook.title}" has been issued to ${finalUserName}.` });
       fetchBooks();
+      setIsIssueModalOpen(false);
+      setIssuingBook(null);
+      setIssueToUserId('');
+      setIssueToUserName('');
     } catch (error) {
       console.error("Error issuing book:", error);
       toast({ title: "Error Issuing Book", description: "Could not issue the book.", variant: "destructive" });
     }
   };
 
-  const handleReturnBook = async (bookId: string) => {
+
+  const handleReturnBook = async (book: Book) => {
     if (!db) {
       toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
       return;
     }
-    const bookRef = doc(db, "books", bookId);
+    const bookRef = doc(db, "books", book.id);
     try {
-      // When returning, we clear issueDetails. Firestore's `deleteField()` could be used for more robust clearing.
-      // For simplicity, setting to null or undefined is also common.
       await updateDoc(bookRef, { status: 'available', issueDetails: null }); 
-      toast({ title: "Book Returned", description: "The book has been marked as available." });
+      
+      await logTransaction({
+        bookId: book.id,
+        bookTitle: book.title,
+        userId: book.issueDetails?.userId || 'unknown_user_return', // Log original user if available
+        userName: book.issueDetails?.userName || 'Unknown User',
+        type: 'return',
+        notes: `Returned to Admin: ${sampleAdmin.name || 'Admin'}`
+      });
+      
+      toast({ title: "Book Returned", description: `"${book.title}" has been marked as available.` });
       fetchBooks();
     } catch (error) {
       console.error("Error returning book:", error);
@@ -137,7 +209,7 @@ export function BookManagementTab() {
   const filteredBooks = books.filter(book =>
     book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    book.isbn.toLowerCase().includes(searchTerm.toLowerCase())
+    (book.isbn && book.isbn.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   if (isLoading) {
@@ -196,7 +268,7 @@ export function BookManagementTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px]">Cover</TableHead>
+              <TableHead className="w-[60px]">Cover</TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Author</TableHead>
               <TableHead>ISBN</TableHead>
@@ -212,7 +284,7 @@ export function BookManagementTab() {
                 <TableRow key={book.id}>
                   <TableCell>
                     <Image
-                      src={book.coverImageUrl || `https://placehold.co/50x75.png?text=${book.title.substring(0,1)}`}
+                      src={book.coverImageUrl || `https://placehold.co/40x60.png?text=${book.title.substring(0,1)}`}
                       alt={book.title}
                       data-ai-hint={book.dataAiHint || "book cover small"}
                       width={40}
@@ -246,16 +318,20 @@ export function BookManagementTab() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => setEditingBook(book)}>
+                        <DropdownMenuItem onClick={() => {
+                          setEditingBook(book);
+                           // This will trigger the BookFormModal to open via its 'open' prop management if `editingBook` is used as its key or part of its open logic.
+                           // For direct control, BookFormModal would need an `isOpen` prop and a way to set it, which is already implemented.
+                        }}>
                           <Edit2 className="mr-2 h-4 w-4" /> Edit
                         </DropdownMenuItem>
                         {(book.status === 'available' || book.status === 'donated_approved') && (
-                          <DropdownMenuItem onClick={() => handleIssueBook(book.id)}>
+                          <DropdownMenuItem onClick={() => {setIssuingBook(book); setIsIssueModalOpen(true);}}>
                             <BookOpenCheck className="mr-2 h-4 w-4" /> Issue Book
                           </DropdownMenuItem>
                         )}
                         {book.status === 'issued' && (
-                          <DropdownMenuItem onClick={() => handleReturnBook(book.id)}>
+                          <DropdownMenuItem onClick={() => handleReturnBook(book)}>
                             <Undo className="mr-2 h-4 w-4" /> Return Book
                           </DropdownMenuItem>
                         )}
@@ -286,12 +362,60 @@ export function BookManagementTab() {
           </TableBody>
         </Table>
       </div>
+      
       {editingBook && (
         <BookFormModal
           book={editingBook}
-          onSave={handleSaveBook}
-          triggerButton={<div style={{display: 'none'}} />} // Modal is controlled by editingBook state. This is a conceptual trigger.
+          onSave={async (data) => {
+            await handleSaveBook(data);
+            setEditingBook(null); // Close modal on save
+          }}
+          // This modal should be controlled by `editingBook` state.
+          // We ensure it's only "open" when `editingBook` is not null.
+          // The BookFormModal itself uses an internal `isOpen` state, triggered by its trigger.
+          // To control it externally, we'd typically pass an `isOpen` prop and an `onOpenChange` handler.
+          // For now, clicking "Edit" sets `editingBook`, and the modal's DialogTrigger handles its own opening.
+          // The `onSave` callback above will set `editingBook` to null, causing the conditional render to remove the modal.
+          // A cleaner approach would be to lift the isOpen state of BookFormModal up.
+          // However, the current BookFormModal is designed with DialogTrigger.
+          // We can simulate "closing" by setting editingBook to null, which re-renders this parent
+          // and conditionally stops rendering BookFormModal if its trigger is not an always-visible button.
+          // Let's ensure BookFormModal is only rendered when editingBook is set, so its internal state is fresh.
+          triggerButton={<div style={{display: 'none'}} />} // Conceptual trigger, modal controlled by editingBook state
         />
+      )}
+
+      {isIssueModalOpen && issuingBook && (
+        <Dialog open={isIssueModalOpen} onOpenChange={ (open) => {
+            setIsIssueModalOpen(open);
+            if (!open) {
+                setIssuingBook(null);
+                setIssueToUserId('');
+                setIssueToUserName('');
+            }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Issue Book: {issuingBook.title}</DialogTitle>
+              <DialogDescription>Enter user ID to issue this book to.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="userId" className="text-right">User ID</Label>
+                <Input id="userId" value={issueToUserId} onChange={(e) => setIssueToUserId(e.target.value)} className="col-span-3" placeholder="Enter registered User ID" />
+              </div>
+               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="userName" className="text-right">User Name (Optional)</Label>
+                <Input id="userName" value={issueToUserName} onChange={(e) => setIssueToUserName(e.target.value)} className="col-span-3" placeholder="Enter user name (if known)" />
+              </div>
+              <p className="text-sm text-muted-foreground col-span-4 px-1">If User Name is left blank, the system will attempt to fetch it using the User ID. Due date will be set to 14 days from today.</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {setIsIssueModalOpen(false); setIssuingBook(null); setIssueToUserId(''); setIssueToUserName('');}}>Cancel</Button>
+              <Button onClick={handleConfirmIssueBook} disabled={!issueToUserId}>Confirm Issue</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

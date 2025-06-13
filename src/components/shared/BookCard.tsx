@@ -1,18 +1,21 @@
+
 import Image from 'next/image';
 import type { Book } from '@/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusPill } from './StatusPill';
 import { BookText, CalendarDays, UserCircle } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 interface BookCardProps {
   book: Book;
-  onAction?: (bookId: string) => void;
-  actionLabel?: string;
-  actionDisabled?: boolean;
+  onAction?: (bookId: string) => void; // Kept for potential generic actions
+  actionLabel?: string; // Kept for potential generic actions
+  actionDisabled?: boolean; // Kept for potential generic actions
+  children?: ReactNode; // To allow passing custom action components like ConfirmationDialog
 }
 
-export function BookCard({ book, onAction, actionLabel, actionDisabled }: BookCardProps) {
+export function BookCard({ book, onAction, actionLabel, actionDisabled, children }: BookCardProps) {
   return (
     <Card className="flex flex-col overflow-hidden h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="p-0 relative">
@@ -43,6 +46,11 @@ export function BookCard({ book, onAction, actionLabel, actionDisabled }: BookCa
               ISBN: {book.isbn}
             </p>
           )}
+           {book.publishedDate && (
+            <p className="flex items-center gap-1">
+              <CalendarDays size={14} /> Published: {book.publishedDate}
+            </p>
+          )}
           {book.status === 'issued' && book.issueDetails && (
             <>
               <p className="flex items-center gap-1">
@@ -55,16 +63,22 @@ export function BookCard({ book, onAction, actionLabel, actionDisabled }: BookCa
           )}
         </div>
       </CardContent>
-      {onAction && actionLabel && (
+      {(onAction && actionLabel || children) && (
         <CardFooter className="p-4 pt-0">
-          <Button 
-            onClick={() => onAction(book.id)} 
-            className="w-full" 
-            variant="default"
-            disabled={actionDisabled}
-          >
-            {actionLabel}
-          </Button>
+          {children ? (
+            <div className="w-full">{children}</div>
+          ) : (
+            onAction && actionLabel && (
+              <Button 
+                onClick={() => onAction(book.id)} 
+                className="w-full" 
+                variant="default"
+                disabled={actionDisabled}
+              >
+                {actionLabel}
+              </Button>
+            )
+          )}
         </CardFooter>
       )}
     </Card>

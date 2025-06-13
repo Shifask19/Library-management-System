@@ -17,8 +17,22 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { db } from '@/lib/firebase.ts';
-import { collection, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, updateDoc, deleteDoc, doc, query, where, orderBy, addDoc } from "firebase/firestore";
 import { Skeleton } from '@/components/ui/skeleton';
+import { sampleAdmin } from '@/types';
+
+// Helper function to log transactions
+async function logTransaction(transactionData: Omit<import('@/types').Transaction, 'id' | 'timestamp'>) {
+  if (!db) return;
+  try {
+    await addDoc(collection(db, "transactions"), {
+      ...transactionData,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error logging transaction:", error);
+  }
+}
 
 export function DonationApprovalTab() {
   const [donations, setDonations] = useState<Book[]>([]);
@@ -35,18 +49,29 @@ export function DonationApprovalTab() {
     setIsLoading(true);
     try {
       const booksCollection = collection(db, "books");
-      // Query for books with status 'donated_pending_approval'
       const q = query(
         booksCollection, 
         where("status", "==", "donated_pending_approval"),
-        orderBy("donatedBy.date", "desc") // Show newest donations first
+        orderBy("donatedBy.date", "desc")
       );
       const donationsSnapshot = await getDocs(q);
       const donationsList = donationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Book));
       setDonations(donationsList);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching pending donations:", error);
-      toast({ title: "Error Fetching Donations", description: "Could not load pending donations.", variant: "destructive" });
+      toast({ 
+        title: "Error Fetching Donations", 
+        description: error.message || "Could not load pending donations.", 
+        variant: "destructive" 
+      });
+      if (error.code === 'failed-precondition') {
+        toast({
+          title: "Index Required",
+          description: "The query for pending donations requires an index. Please deploy Firestore indexes.",
+          variant: "destructive",
+          duration: 10000,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -56,34 +81,57 @@ export function DonationApprovalTab() {
     fetchPendingDonations();
   }, [fetchPendingDonations]);
 
-  const handleApproveDonation = async (bookId: string, bookTitle: string) => {
+  const handleApproveDonation = async (book: Book) => {
     if (!db) {
       toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
       return;
     }
-    const bookRef = doc(db, "books", bookId);
+    const bookRef = doc(db, "books", book.id);
     try {
-      await updateDoc(bookRef, { status: 'donated_approved' }); // Or 'available' if that's the desired status after approval
-      toast({ title: "Donation Approved", description: `"${bookTitle}" has been approved and added to the library.` });
-      fetchPendingDonations(); // Refresh list
+      // Change status to 'donated_approved' or 'available'
+      // If 'donated_approved', it might still need to be manually moved to 'available' by admin if desired
+      // For simplicity, let's make it 'available' directly.
+      await updateDoc(bookRef, { status: 'available' }); 
+      
+      await logTransaction({
+        bookId: book.id,
+        bookTitle: book.title,
+        userId: book.donatedBy?.userId || 'unknown_donor',
+        userName: book.donatedBy?.userName || 'Unknown Donor',
+        type: 'donate_approve',
+        notes: `Donation approved by Admin: ${sampleAdmin.name || 'Admin'}`
+      });
+
+      toast({ title: "Donation Approved", description: `"${book.title}" has been approved and added to the library as available.` });
+      fetchPendingDonations();
     } catch (error) {
       console.error("Error approving donation:", error);
       toast({ title: "Error Approving Donation", description: "Could not approve the donation.", variant: "destructive" });
     }
   };
 
-  const handleRejectDonation = async (bookId: string, bookTitle: string) => {
+  const handleRejectDonation = async (book: Book) => {
     if (!db) {
       toast({ title: "Error", description: "Firestore is not initialized.", variant: "destructive" });
       return;
     }
-    // Option 1: Delete the book document for a rejected donation
-    // Option 2: Update status to 'donated_rejected' if you want to keep a record
     try {
-      await deleteDoc(doc(db, "books", bookId)); // Option 1
-      // await updateDoc(doc(db, "books", bookId), { status: 'donated_rejected' }); // Option 2
-      toast({ title: "Donation Rejected", description: `The donation request for "${bookTitle}" has been rejected.`});
-      fetchPendingDonations(); // Refresh list
+      // Option 1: Delete the book document
+      await deleteDoc(doc(db, "books", book.id));
+      // Option 2: Update status to 'donated_rejected' (if you want to keep a record of rejected donations)
+      // await updateDoc(doc(db, "books", book.id), { status: 'donated_rejected' });
+      
+      await logTransaction({
+        bookId: book.id,
+        bookTitle: book.title,
+        userId: book.donatedBy?.userId || 'unknown_donor',
+        userName: book.donatedBy?.userName || 'Unknown Donor',
+        type: 'donate_reject',
+        notes: `Donation rejected by Admin: ${sampleAdmin.name || 'Admin'}`
+      });
+      
+      toast({ title: "Donation Rejected", description: `The donation request for "${book.title}" has been rejected and removed.`});
+      fetchPendingDonations();
     } catch (error) {
       console.error("Error rejecting donation:", error);
       toast({ title: "Error Rejecting Donation", description: "Could not reject the donation.", variant: "destructive" });
@@ -93,7 +141,7 @@ export function DonationApprovalTab() {
   if (isLoading) {
      return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-1/3 mb-4" /> {/* Placeholder for a title or info */}
+        <Skeleton className="h-8 w-1/3 mb-4" />
         <div className="rounded-lg border shadow-sm overflow-hidden">
           <Table>
             <TableHeader>
@@ -161,28 +209,28 @@ export function DonationApprovalTab() {
                         </Button>
                       </DialogTrigger>
                       {viewingDonation && viewingDonation.id === book.id && (
-                        <DialogContent>
+                        <DialogContent className="sm:max-w-lg">
                           <DialogHeader>
                             <DialogTitle>{viewingDonation.title}</DialogTitle>
                             <DialogDescription>By {viewingDonation.author}</DialogDescription>
                           </DialogHeader>
-                          <div className="space-y-2 text-sm max-h-[60vh] overflow-y-auto">
+                          <div className="space-y-2 text-sm max-h-[60vh] overflow-y-auto py-4">
                             <p><strong>ISBN:</strong> {viewingDonation.isbn}</p>
                             <p><strong>Category:</strong> {viewingDonation.category}</p>
                             <p><strong>Published:</strong> {viewingDonation.publishedDate}</p>
                             <p><strong>Donated By:</strong> {viewingDonation.donatedBy?.userName} on {viewingDonation.donatedBy?.date ? new Date(viewingDonation.donatedBy.date).toLocaleDateString() : 'N/A'}</p>
                             <p><strong>Description:</strong> {viewingDonation.description || "No description provided."}</p>
                              {viewingDonation.coverImageUrl && 
-                                <Image src={viewingDonation.coverImageUrl} alt={viewingDonation.title} width={150} height={225} className="rounded mt-2" data-ai-hint={viewingDonation.dataAiHint || "book cover"} />
+                                <Image src={viewingDonation.coverImageUrl} alt={viewingDonation.title} width={150} height={225} className="rounded mt-2 object-contain" data-ai-hint={viewingDonation.dataAiHint || "book cover"} />
                              }
                           </div>
                         </DialogContent>
                       )}
                     </Dialog>
-                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-100" onClick={() => handleApproveDonation(book.id, book.title)}>
+                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-100" onClick={() => handleApproveDonation(book)}>
                       <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-100" onClick={() => handleRejectDonation(book.id, book.title)}>
+                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-100" onClick={() => handleRejectDonation(book)}>
                       <XCircle className="mr-1 h-4 w-4" /> Reject
                     </Button>
                   </TableCell>
