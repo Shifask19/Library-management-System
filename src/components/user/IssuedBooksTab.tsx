@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -7,7 +8,10 @@ import { BookCard } from '@/components/shared/BookCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, BookOpenCheck, Search } from 'lucide-react';
+import { AlertTriangle, BookOpenCheck, Search, RefreshCcw } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+const RENEWAL_PERIOD_DAYS = 7; // Renew for 7 days
 
 export function IssuedBooksTab() {
   // Assuming current user ID is 'user1' for mock data filtering
@@ -17,12 +21,51 @@ export function IssuedBooksTab() {
   );
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'due_soon' | 'overdue'>('all');
+  const { toast } = useToast();
 
   const handleRenewBook = (bookId: string) => {
-    // Placeholder for renew functionality
-    console.log(`Renew request for book ID: ${bookId}`);
-    // In a real app, this would make an API call
-    alert(`Renew functionality for book ${bookId} is not yet implemented.`);
+    setUserBooks(prevBooks => {
+      const bookIndex = prevBooks.findIndex(b => b.id === bookId);
+      if (bookIndex === -1) {
+        toast({
+          title: "Renewal Failed",
+          description: "Book not found.",
+          variant: "destructive",
+        });
+        return prevBooks;
+      }
+
+      const bookToRenew = prevBooks[bookIndex];
+      if (!bookToRenew.issueDetails) {
+         toast({
+          title: "Renewal Failed",
+          description: "Book issue details not found.",
+          variant: "destructive",
+        });
+        return prevBooks;
+      }
+
+      const currentDueDate = new Date(bookToRenew.issueDetails.dueDate);
+      const newDueDate = new Date(currentDueDate);
+      newDueDate.setDate(currentDueDate.getDate() + RENEWAL_PERIOD_DAYS);
+
+      const updatedBook = {
+        ...bookToRenew,
+        issueDetails: {
+          ...bookToRenew.issueDetails,
+          dueDate: newDueDate.toISOString(),
+        },
+      };
+
+      const updatedBooks = [...prevBooks];
+      updatedBooks[bookIndex] = updatedBook;
+      
+      toast({
+        title: "Book Renewed",
+        description: `"${bookToRenew.title}" has been renewed. New due date: ${newDueDate.toLocaleDateString()}.`,
+      });
+      return updatedBooks;
+    });
   };
 
   const filteredAndSortedBooks = userBooks
@@ -35,16 +78,22 @@ export function IssuedBooksTab() {
 
       if (filter === 'all') return true;
       
-      const dueDate = new Date(book.issueDetails!.dueDate);
+      if (!book.issueDetails) return false; // Should not happen for issued books but good check
+      const dueDate = new Date(book.issueDetails.dueDate);
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalize today to start of day for comparison
+      dueDate.setHours(0,0,0,0); // Normalize due date to start of day
+
       const diffTime = dueDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       if (filter === 'overdue') return diffDays < 0;
-      if (filter === 'due_soon') return diffDays >= 0 && diffDays <= 3; // Due in 3 days or less
+      if (filter === 'due_soon') return diffDays >= 0 && diffDays <= 3; // Due in 3 days or less (including today)
       return true;
     })
-    .sort((a, b) => new Date(a.issueDetails!.dueDate).getTime() - new Date(b.issueDetails!.dueDate).getTime()); // Sort by due date ascending
+    .sort((a, b) => 
+      new Date(a.issueDetails!.dueDate).getTime() - new Date(b.issueDetails!.dueDate).getTime()
+    ); // Sort by due date ascending
 
   return (
     <div className="space-y-6">
@@ -79,8 +128,7 @@ export function IssuedBooksTab() {
               book={book}
               actionLabel="Request Renewal"
               onAction={() => handleRenewBook(book.id)}
-              // Disable renewal if overdue? Or based on library policy.
-              // actionDisabled={new Date(book.issueDetails!.dueDate) < new Date()} 
+              // actionDisabled={/* Add complex logic here if needed, e.g., already overdue or renewal limit reached */}
             />
           ))}
         </div>
@@ -104,3 +152,4 @@ export function IssuedBooksTab() {
     </div>
   );
 }
+
