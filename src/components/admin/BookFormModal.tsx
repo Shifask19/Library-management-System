@@ -22,13 +22,13 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 interface BookFormModalProps {
-  book?: Book | null; 
+  book?: Book | null;
   triggerButton: React.ReactNode;
-  onSave: (bookData: Omit<Book, 'id' | 'issueDetails' | 'donatedBy'> | Book) => Promise<void>; 
+  onSave: (bookData: Omit<Book, 'id' | 'issueDetails' | 'donatedBy'> | Book) => Promise<void>;
 }
 
 const bookStatuses: Book['status'][] = ['available', 'maintenance', 'lost'];
-const bookCategories = ["Computer Science", "Fiction", "Science", "History", "Mathematics", "Engineering", "Literature", "Thriller", "Physics"];
+const bookCategories = ["Computer Science", "Fiction", "Science", "History", "Mathematics", "Engineering", "Literature", "Thriller", "Physics", "Electronics", "Other"];
 
 
 export function BookFormModal({ book, triggerButton, onSave }: BookFormModalProps) {
@@ -76,7 +76,7 @@ export function BookFormModal({ book, triggerButton, onSave }: BookFormModalProp
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     const baseBookData = {
       title,
       author,
@@ -100,15 +100,15 @@ export function BookFormModal({ book, triggerButton, onSave }: BookFormModalProp
     } else { // Adding new book
       bookDataToSave = baseBookData;
     }
-    
+
 
     try {
-      await onSave(bookDataToSave); 
+      await onSave(bookDataToSave);
       toast({
         title: `Book ${book ? 'Updated' : 'Added'}`,
         description: `"${title}" has been successfully ${book ? 'updated' : 'added'}.`,
       });
-      setIsOpen(false); 
+      setIsOpen(false);
     } catch (error) {
       console.error("Error saving book:", error);
       toast({
@@ -149,7 +149,7 @@ export function BookFormModal({ book, triggerButton, onSave }: BookFormModalProp
             </div>
              <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-               <Select value={category} onValueChange={setCategory}>
+               <Select value={category} onValueChange={setCategory} required>
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>

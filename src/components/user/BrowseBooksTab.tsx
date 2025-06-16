@@ -31,6 +31,8 @@ async function logTransaction(transactionData: Omit<import('@/types').Transactio
   }
 }
 
+const bookCategories = ["All", "Computer Science", "Fiction", "Science", "History", "Mathematics", "Engineering", "Literature", "Thriller", "Physics", "Electronics", "Other"];
+
 
 export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
   const [allBooks, setAllBooks] = useState<Book[]>([]);
@@ -38,8 +40,6 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const { toast } = useToast();
-
-  const bookCategories = ["All", "Computer Science", "Fiction", "Science", "History", "Mathematics", "Engineering", "Literature", "Thriller", "Physics", "Electronics"];
 
   const fetchAvailableBooks = useCallback(async () => {
     if (!db) {
@@ -52,19 +52,25 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
       const booksCollection = collection(db, "books");
       // Query for books with status 'available' or 'donated_approved'
       const q = query(
-        booksCollection, 
+        booksCollection,
         where("status", "in", ["available", "donated_approved"]),
-        orderBy("title") 
+        orderBy("title")
       );
       const booksSnapshot = await getDocs(q);
       const booksList = booksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Book));
+      console.log(`BrowseBooksTab: Fetched books count from Firestore: ${booksList.length}`);
+      if (booksList.length > 0) {
+        console.log('BrowseBooksTab: First fetched book from Firestore:', JSON.stringify(booksList[0]));
+      } else {
+        console.log('BrowseBooksTab: No books with status "available" or "donated_approved" found in Firestore.');
+      }
       setAllBooks(booksList);
     } catch (error: any) {
       console.error("Error fetching available books:", error);
-       setTimeout(() => toast({ 
-        title: "Error Fetching Books", 
-        description: error.message || "Could not load available books.", 
-        variant: "destructive" 
+       setTimeout(() => toast({
+        title: "Error Fetching Books",
+        description: error.message || "Could not load available books.",
+        variant: "destructive"
       }), 0);
        if (error.code === 'failed-precondition') {
         setTimeout(() => toast({
@@ -107,7 +113,7 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
 
     try {
       await updateDoc(bookRef, { status: 'issued', issueDetails });
-      
+
       await logTransaction({
         bookId: bookId,
         bookTitle: bookTitle,
@@ -127,14 +133,14 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
       toast({ title: "Error Issuing Book", description: "Could not issue the book. Please try again.", variant: "destructive" });
     }
   };
-  
+
   const filteredBooks = allBooks
     .filter(book => {
       const lowerSearchTerm = searchTerm.toLowerCase();
       const matchesSearch = book.title.toLowerCase().includes(lowerSearchTerm) ||
                             book.author.toLowerCase().includes(lowerSearchTerm) ||
                             (book.isbn && book.isbn.toLowerCase().includes(lowerSearchTerm));
-      
+
       const matchesCategory = categoryFilter === 'all' || (book.category && book.category === categoryFilter);
 
       return matchesSearch && matchesCategory;
@@ -183,21 +189,17 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
       {filteredBooks.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredBooks.map(book => (
-            <BookCard 
-              key={book.id} 
+            <BookCard
+              key={book.id}
               book={book}
               actionLabel="Issue This Book"
               onAction={() => { /* This will be handled by ConfirmationDialog's onConfirm */ }}
-              // Custom trigger for ConfirmationDialog within BookCard's footer area
-              // This requires BookCard to be flexible. Let's pass a trigger to ConfirmationDialog.
-              // The BookCard's onAction will not be used directly for issuing.
-              // Instead, we use a ConfirmationDialog.
-              actionDisabled={!currentUser} 
+              actionDisabled={!currentUser}
             >
               <ConfirmationDialog
                 triggerButton={
-                  <Button 
-                    className="w-full mt-2" // Added mt-2 for spacing if BookCard footer has other elements
+                  <Button
+                    className="w-full mt-2"
                     variant="default"
                     disabled={!currentUser || book.status !== 'available' && book.status !== 'donated_approved'}
                   >
@@ -217,8 +219,8 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
           <Library className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-semibold">No Books Available</h3>
           <p className="text-muted-foreground">
-            {searchTerm || categoryFilter !== 'all' 
-              ? "No books match your current search or filter criteria." 
+            {searchTerm || categoryFilter !== 'all'
+              ? "No books match your current search or filter criteria."
               : "There are currently no books available in the library catalog."}
           </p>
         </div>
