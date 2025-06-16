@@ -48,6 +48,7 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
       return;
     }
     setIsLoading(true);
+    console.log("BrowseBooksTab: Querying Firestore for books with status 'available' or 'donated_approved'.");
     try {
       const booksCollection = collection(db, "books");
       // Query for books with status 'available' or 'donated_approved'
@@ -60,9 +61,9 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
       const booksList = booksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Book));
       console.log(`BrowseBooksTab: Fetched books count from Firestore: ${booksList.length}`);
       if (booksList.length > 0) {
-        console.log('BrowseBooksTab: First fetched book from Firestore:', JSON.stringify(booksList[0]));
+        // console.log('BrowseBooksTab: First fetched book from Firestore:', JSON.stringify(booksList[0])); // Optionally log first book for debugging
       } else {
-        console.log('BrowseBooksTab: No books with status "available" or "donated_approved" found in Firestore.');
+        console.log('BrowseBooksTab: No books with status "available" or "donated_approved" found in Firestore based on the current query.');
       }
       setAllBooks(booksList);
     } catch (error: any) {
@@ -75,7 +76,7 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
        if (error.code === 'failed-precondition') {
         setTimeout(() => toast({
           title: "Index Required",
-          description: "The query for available books requires an index. Please check Firestore indexes.",
+          description: "The query for available books requires an index: 'books' collection, fields: status (ASC), title (ASC). Please check Firestore indexes.",
           variant: "destructive",
           duration: 10000,
         }), 0);
@@ -221,10 +222,11 @@ export function BrowseBooksTab({ currentUser }: BrowseBooksTabProps) {
           <p className="text-muted-foreground">
             {searchTerm || categoryFilter !== 'all'
               ? "No books match your current search or filter criteria."
-              : "There are currently no books available in the library catalog."}
+              : "No books are currently marked as 'available' or 'donated_approved' in the library system. Please check back later or contact an admin."}
           </p>
         </div>
       )}
     </div>
   );
 }
+
