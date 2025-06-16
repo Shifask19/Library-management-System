@@ -29,7 +29,7 @@ export default function LoginForm({ role }: LoginFormProps) {
     setIsLoading(true);
     console.log(`LoginForm: Attempting login for role: ${role} with email: ${email}`);
 
-    console.error(
+    console.log( // Changed from console.error
       `LoginForm DEBUG: If you encounter 'auth/invalid-credential', it means the email/password is incorrect, the user does not exist in Firebase Auth, or the account is disabled. Please VERIFY in the Firebase Console (Authentication > Users). Also, ensure the Identity Toolkit API is enabled in Google Cloud.`
     );
 
