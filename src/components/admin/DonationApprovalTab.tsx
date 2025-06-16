@@ -88,9 +88,6 @@ export function DonationApprovalTab() {
     }
     const bookRef = doc(db, "books", book.id);
     try {
-      // Change status to 'donated_approved' or 'available'
-      // If 'donated_approved', it might still need to be manually moved to 'available' by admin if desired
-      // For simplicity, let's make it 'available' directly.
       await updateDoc(bookRef, { status: 'available' }); 
       
       await logTransaction({
@@ -116,10 +113,7 @@ export function DonationApprovalTab() {
       return;
     }
     try {
-      // Option 1: Delete the book document
       await deleteDoc(doc(db, "books", book.id));
-      // Option 2: Update status to 'donated_rejected' (if you want to keep a record of rejected donations)
-      // await updateDoc(doc(db, "books", book.id), { status: 'donated_rejected' });
       
       await logTransaction({
         bookId: book.id,
@@ -185,57 +179,83 @@ export function DonationApprovalTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {donations.map((book) => (
-                <TableRow key={book.id}>
-                  <TableCell>
-                    <Image
-                      src={book.coverImageUrl || `https://placehold.co/50x75.png?text=${book.title.substring(0,1)}`}
-                      alt={book.title}
-                      data-ai-hint={book.dataAiHint || "book cover small"}
-                      width={40}
-                      height={60}
-                      className="rounded object-cover"
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{book.title}</TableCell>
-                  <TableCell>{book.author}</TableCell>
-                  <TableCell>{book.donatedBy?.userName || 'N/A'}</TableCell>
-                  <TableCell>{book.donatedBy?.date ? new Date(book.donatedBy.date).toLocaleDateString() : 'N/A'}</TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Dialog onOpenChange={(open) => !open && setViewingDonation(null)}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => setViewingDonation(book)}>
-                          <Eye className="mr-1 h-4 w-4" /> View
-                        </Button>
-                      </DialogTrigger>
-                      {viewingDonation && viewingDonation.id === book.id && (
-                        <DialogContent className="sm:max-w-lg">
-                          <DialogHeader>
-                            <DialogTitle>{viewingDonation.title}</DialogTitle>
-                            <DialogDescription>By {viewingDonation.author}</DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-2 text-sm max-h-[60vh] overflow-y-auto py-4">
-                            <p><strong>ISBN:</strong> {viewingDonation.isbn}</p>
-                            <p><strong>Category:</strong> {viewingDonation.category}</p>
-                            <p><strong>Published:</strong> {viewingDonation.publishedDate}</p>
-                            <p><strong>Donated By:</strong> {viewingDonation.donatedBy?.userName} on {viewingDonation.donatedBy?.date ? new Date(viewingDonation.donatedBy.date).toLocaleDateString() : 'N/A'}</p>
-                            <p><strong>Description:</strong> {viewingDonation.description || "No description provided."}</p>
-                             {viewingDonation.coverImageUrl && 
-                                <Image src={viewingDonation.coverImageUrl} alt={viewingDonation.title} width={150} height={225} className="rounded mt-2 object-contain" data-ai-hint={viewingDonation.dataAiHint || "book cover"} />
-                             }
-                          </div>
-                        </DialogContent>
-                      )}
-                    </Dialog>
-                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-100" onClick={() => handleApproveDonation(book)}>
-                      <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-100" onClick={() => handleRejectDonation(book)}>
-                      <XCircle className="mr-1 h-4 w-4" /> Reject
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {donations.map((book) => {
+                const placeholderChar = encodeURIComponent(book.title?.charAt(0)?.toUpperCase() || 'D');
+                let imageSrcTable = `https://placehold.co/50x75.png?text=${placeholderChar}`;
+                if (book.coverImageUrl && (book.coverImageUrl.startsWith('http://') || book.coverImageUrl.startsWith('https://'))) {
+                  imageSrcTable = book.coverImageUrl;
+                }
+                return (
+                  <TableRow key={book.id}>
+                    <TableCell>
+                      <Image
+                        src={imageSrcTable}
+                        alt={book.title || 'Book cover'}
+                        data-ai-hint={book.dataAiHint || "book cover small"}
+                        width={40}
+                        height={60}
+                        className="rounded object-cover"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{book.title}</TableCell>
+                    <TableCell>{book.author}</TableCell>
+                    <TableCell>{book.donatedBy?.userName || 'N/A'}</TableCell>
+                    <TableCell>{book.donatedBy?.date ? new Date(book.donatedBy.date).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="text-right space-x-2">
+                      <Dialog onOpenChange={(open) => !open && setViewingDonation(null)}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm" onClick={() => setViewingDonation(book)}>
+                            <Eye className="mr-1 h-4 w-4" /> View
+                          </Button>
+                        </DialogTrigger>
+                        {viewingDonation && viewingDonation.id === book.id && (
+                          <DialogContent className="sm:max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle>{viewingDonation.title || "Book Details"}</DialogTitle>
+                              <DialogDescription>By {viewingDonation.author || "Unknown Author"}</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-2 text-sm max-h-[60vh] overflow-y-auto py-4">
+                              <p><strong>ISBN:</strong> {viewingDonation.isbn}</p>
+                              <p><strong>Category:</strong> {viewingDonation.category}</p>
+                              <p><strong>Published:</strong> {viewingDonation.publishedDate}</p>
+                              <p><strong>Donated By:</strong> {viewingDonation.donatedBy?.userName} on {viewingDonation.donatedBy?.date ? new Date(viewingDonation.donatedBy.date).toLocaleDateString() : 'N/A'}</p>
+                              <p><strong>Description:</strong> {viewingDonation.description || "No description provided."}</p>
+                              {(() => {
+                                let imageToDisplayDialog = null;
+                                const dialogPlaceholderText = encodeURIComponent(viewingDonation.title || 'Book Preview');
+                                let defaultDialogImageSrc = `https://placehold.co/150x225.png?text=${dialogPlaceholderText}`;
+
+                                if (viewingDonation.coverImageUrl && (viewingDonation.coverImageUrl.startsWith('http://') || viewingDonation.coverImageUrl.startsWith('https://'))) {
+                                  imageToDisplayDialog = viewingDonation.coverImageUrl;
+                                } else {
+                                  imageToDisplayDialog = defaultDialogImageSrc; // Always show a placeholder if actual image is invalid/missing
+                                }
+                                
+                                return (
+                                  <Image 
+                                    src={imageToDisplayDialog} 
+                                    alt={viewingDonation.title || 'Book cover'} 
+                                    width={150} 
+                                    height={225} 
+                                    className="rounded mt-2 object-contain" 
+                                    data-ai-hint={viewingDonation.dataAiHint || "book cover"} 
+                                  />
+                                );
+                              })()}
+                            </div>
+                          </DialogContent>
+                        )}
+                      </Dialog>
+                      <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-100" onClick={() => handleApproveDonation(book)}>
+                        <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-100" onClick={() => handleRejectDonation(book)}>
+                        <XCircle className="mr-1 h-4 w-4" /> Reject
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

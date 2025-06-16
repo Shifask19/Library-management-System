@@ -9,19 +9,25 @@ import type { ReactNode } from 'react';
 
 interface BookCardProps {
   book: Book;
-  onAction?: (bookId: string) => void; // Kept for potential generic actions
-  actionLabel?: string; // Kept for potential generic actions
-  actionDisabled?: boolean; // Kept for potential generic actions
-  children?: ReactNode; // To allow passing custom action components like ConfirmationDialog
+  onAction?: (bookId: string) => void; 
+  actionLabel?: string; 
+  actionDisabled?: boolean; 
+  children?: ReactNode; 
 }
 
 export function BookCard({ book, onAction, actionLabel, actionDisabled, children }: BookCardProps) {
+  const placeholderText = encodeURIComponent(book.title || 'Book');
+  let imageSrc = `https://placehold.co/400x600.png?text=${placeholderText}`;
+  if (book.coverImageUrl && (book.coverImageUrl.startsWith('http://') || book.coverImageUrl.startsWith('https://'))) {
+    imageSrc = book.coverImageUrl;
+  }
+
   return (
     <Card className="flex flex-col overflow-hidden h-full shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="p-0 relative">
         <Image
-          src={book.coverImageUrl || `https://placehold.co/400x600.png?text=${encodeURIComponent(book.title)}`}
-          alt={book.title}
+          src={imageSrc}
+          alt={book.title || 'Book cover'}
           data-ai-hint={book.dataAiHint || "book cover"}
           width={400}
           height={600}
@@ -32,8 +38,8 @@ export function BookCard({ book, onAction, actionLabel, actionDisabled, children
         </div>
       </CardHeader>
       <CardContent className="p-4 flex-grow">
-        <CardTitle className="text-lg font-headline mb-1 line-clamp-2">{book.title}</CardTitle>
-        <CardDescription className="text-sm text-muted-foreground mb-2 line-clamp-1">By {book.author}</CardDescription>
+        <CardTitle className="text-lg font-headline mb-1 line-clamp-2">{book.title || "Untitled Book"}</CardTitle>
+        <CardDescription className="text-sm text-muted-foreground mb-2 line-clamp-1">By {book.author || "Unknown Author"}</CardDescription>
         
         <div className="text-xs text-muted-foreground space-y-1 mt-2">
           {book.category && (

@@ -207,8 +207,8 @@ export function BookManagementTab() {
   };
 
   const filteredBooks = books.filter(book =>
-    book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (book.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (book.author || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (book.isbn && book.isbn.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -280,78 +280,83 @@ export function BookManagementTab() {
           </TableHeader>
           <TableBody>
             {filteredBooks.length > 0 ? (
-              filteredBooks.map((book) => (
-                <TableRow key={book.id}>
-                  <TableCell>
-                    <Image
-                      src={book.coverImageUrl || `https://placehold.co/40x60.png?text=${book.title.substring(0,1)}`}
-                      alt={book.title}
-                      data-ai-hint={book.dataAiHint || "book cover small"}
-                      width={40}
-                      height={60}
-                      className="rounded object-cover"
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{book.title}</TableCell>
-                  <TableCell>{book.author}</TableCell>
-                  <TableCell>{book.isbn}</TableCell>
-                  <TableCell>
-                    <StatusPill book={book} />
-                  </TableCell>
-                  <TableCell>
-                    {book.status === 'issued' && book.issueDetails?.userName 
-                      ? book.issueDetails.userName 
-                      : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    {book.status === 'issued' && book.issueDetails?.dueDate 
-                      ? new Date(book.issueDetails.dueDate).toLocaleDateString() 
-                      : 'N/A'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => {
-                          setEditingBook(book);
-                           // This will trigger the BookFormModal to open via its 'open' prop management if `editingBook` is used as its key or part of its open logic.
-                           // For direct control, BookFormModal would need an `isOpen` prop and a way to set it, which is already implemented.
-                        }}>
-                          <Edit2 className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        {(book.status === 'available' || book.status === 'donated_approved') && (
-                          <DropdownMenuItem onClick={() => {setIssuingBook(book); setIsIssueModalOpen(true);}}>
-                            <BookOpenCheck className="mr-2 h-4 w-4" /> Issue Book
+              filteredBooks.map((book) => {
+                const placeholderChar = encodeURIComponent(book.title?.charAt(0)?.toUpperCase() || 'B');
+                let imageSrc = `https://placehold.co/40x60.png?text=${placeholderChar}`;
+                if (book.coverImageUrl && (book.coverImageUrl.startsWith('http://') || book.coverImageUrl.startsWith('https://'))) {
+                  imageSrc = book.coverImageUrl;
+                }
+                return (
+                  <TableRow key={book.id}>
+                    <TableCell>
+                      <Image
+                        src={imageSrc}
+                        alt={book.title || 'Book cover'}
+                        data-ai-hint={book.dataAiHint || "book cover small"}
+                        width={40}
+                        height={60}
+                        className="rounded object-cover"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{book.title}</TableCell>
+                    <TableCell>{book.author}</TableCell>
+                    <TableCell>{book.isbn}</TableCell>
+                    <TableCell>
+                      <StatusPill book={book} />
+                    </TableCell>
+                    <TableCell>
+                      {book.status === 'issued' && book.issueDetails?.userName 
+                        ? book.issueDetails.userName 
+                        : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      {book.status === 'issued' && book.issueDetails?.dueDate 
+                        ? new Date(book.issueDetails.dueDate).toLocaleDateString() 
+                        : 'N/A'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => {
+                            setEditingBook(book);
+                          }}>
+                            <Edit2 className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
-                        )}
-                        {book.status === 'issued' && (
-                          <DropdownMenuItem onClick={() => handleReturnBook(book)}>
-                            <Undo className="mr-2 h-4 w-4" /> Return Book
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <ConfirmationDialog
-                            triggerButton={
-                                <button className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive hover:bg-destructive/10">
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                </button>
-                            }
-                            title="Delete Book"
-                            description={`Are you sure you want to delete "${book.title}"? This action cannot be undone.`}
-                            onConfirm={() => handleDeleteBook(book.id, book.title)}
-                            variant="destructive"
-                         />
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
+                          {(book.status === 'available' || book.status === 'donated_approved') && (
+                            <DropdownMenuItem onClick={() => {setIssuingBook(book); setIsIssueModalOpen(true);}}>
+                              <BookOpenCheck className="mr-2 h-4 w-4" /> Issue Book
+                            </DropdownMenuItem>
+                          )}
+                          {book.status === 'issued' && (
+                            <DropdownMenuItem onClick={() => handleReturnBook(book)}>
+                              <Undo className="mr-2 h-4 w-4" /> Return Book
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <ConfirmationDialog
+                              triggerButton={
+                                  <button className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 w-full text-destructive hover:bg-destructive/10">
+                                    <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                  </button>
+                              }
+                              title="Delete Book"
+                              description={`Are you sure you want to delete "${book.title || 'this book'}"? This action cannot be undone.`}
+                              onConfirm={() => handleDeleteBook(book.id, book.title || 'this book')}
+                              variant="destructive"
+                           />
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={8} className="h-24 text-center">
@@ -368,20 +373,9 @@ export function BookManagementTab() {
           book={editingBook}
           onSave={async (data) => {
             await handleSaveBook(data);
-            setEditingBook(null); // Close modal on save
+            setEditingBook(null); 
           }}
-          // This modal should be controlled by `editingBook` state.
-          // We ensure it's only "open" when `editingBook` is not null.
-          // The BookFormModal itself uses an internal `isOpen` state, triggered by its trigger.
-          // To control it externally, we'd typically pass an `isOpen` prop and an `onOpenChange` handler.
-          // For now, clicking "Edit" sets `editingBook`, and the modal's DialogTrigger handles its own opening.
-          // The `onSave` callback above will set `editingBook` to null, causing the conditional render to remove the modal.
-          // A cleaner approach would be to lift the isOpen state of BookFormModal up.
-          // However, the current BookFormModal is designed with DialogTrigger.
-          // We can simulate "closing" by setting editingBook to null, which re-renders this parent
-          // and conditionally stops rendering BookFormModal if its trigger is not an always-visible button.
-          // Let's ensure BookFormModal is only rendered when editingBook is set, so its internal state is fresh.
-          triggerButton={<div style={{display: 'none'}} />} // Conceptual trigger, modal controlled by editingBook state
+          triggerButton={<div style={{display: 'none'}} />} 
         />
       )}
 
