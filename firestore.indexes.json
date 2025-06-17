@@ -34,6 +34,13 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "title", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
