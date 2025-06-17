@@ -27,8 +27,7 @@ export function UserDashboardClient() {
 
   useEffect(() => {
     // Simulate fetching user data. Replace with actual auth logic.
-    // Changed mockUser.id to 'user1' to match mockData for issued books.
-    const mockUser: User = { id: 'user1', email: 'user1@example.com', role: 'user', name: 'Aisha Sharma (Mock)' };
+    const mockUser: User = { id: 'user1', email: 'user1@example.com', role: 'user', name: 'Student of PES College (Mock)' };
     setCurrentUser(mockUser);
     setPageTitleUserName(mockUser.name || 'User');
 
