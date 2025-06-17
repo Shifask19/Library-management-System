@@ -1,3 +1,4 @@
+
 {
   "indexes": [
     {
@@ -41,6 +42,10 @@
           "order": "ASCENDING"
         },
         {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "donatedBy.date",
           "order": "DESCENDING"
         }
@@ -55,25 +60,27 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "category",
+          "fieldPath": "title",
           "order": "ASCENDING"
-        },
+        }
+      ]
+    },
+    {
+      "collectionGroup": "books",
+      "queryScope": "COLLECTION",
+      "fields": [
         {
           "fieldPath": "title",
           "order": "ASCENDING"
         }
       ]
     },
-     {
+    {
       "collectionGroup": "books",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "title",
+          "fieldPath": "isbn",
           "order": "ASCENDING"
         }
       ]
@@ -85,6 +92,16 @@
         {
           "fieldPath": "timestamp",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "email",
+          "order": "ASCENDING"
         }
       ]
     }
