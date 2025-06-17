@@ -5,104 +5,34 @@
       "collectionGroup": "books",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "donatedBy.date",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "donatedBy.date", "order": "DESCENDING" }
       ]
     },
     {
       "collectionGroup": "books",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "issueDetails.userId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "issueDetails.dueDate",
-          "order": "ASCENDING"
-        }
+        { "fieldPath": "issueDetails.userId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "issueDetails.dueDate", "order": "ASCENDING" }
       ]
     },
     {
       "collectionGroup": "books",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "donatedBy.userId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "donatedBy.date",
-          "order": "DESCENDING"
-        }
+        { "fieldPath": "donatedBy.userId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "donatedBy.date", "order": "DESCENDING" }
       ]
     },
     {
       "collectionGroup": "books",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "title",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "books",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "title",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "books",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "isbn",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "timestamp",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "users",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "email",
-          "order": "ASCENDING"
-        }
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "title", "order": "ASCENDING" }
       ]
     }
   ],
