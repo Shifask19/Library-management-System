@@ -1057,8 +1057,71 @@ export const mockBooks: Book[] = [
     coverImageUrl: 'https://placehold.co/300x450.png',
     dataAiHint: 'power converter schematic',
     description: 'A comprehensive textbook on power electronics.'
-  }
+  },
   // --- End of 50+ new books ---
+
+  // New books for user to issue
+  {
+    id: 'lit_new_001',
+    title: 'To Kill a Mockingbird',
+    author: 'Harper Lee',
+    isbn: '978-0061120084',
+    status: 'available',
+    category: 'Literature',
+    publishedDate: '1960',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'classic novel',
+    description: 'A classic of modern American literature, dealing with themes of racial injustice and loss of innocence.'
+  },
+  {
+    id: 'sci_new_001',
+    title: 'Cosmos',
+    author: 'Carl Sagan',
+    isbn: '978-0345539434',
+    status: 'available',
+    category: 'Science',
+    publishedDate: '1980',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'space stars',
+    description: 'Explores the vastness of space and our place within it, based on the iconic TV series.'
+  },
+  {
+    id: 'math_new_001',
+    title: 'Gödel, Escher, Bach: An Eternal Golden Braid',
+    author: 'Douglas Hofstadter',
+    isbn: '978-0465026562',
+    status: 'donated_approved',
+    category: 'Mathematics',
+    publishedDate: '1979',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'abstract pattern',
+    donatedBy: { userId: 'user3', userName: 'Dr. Priya Singh', date: addDays(today, -60).toISOString() },
+    description: 'A Pulitzer Prize-winning book that explores common themes in the lives and works of logician Kurt Gödel, artist M. C. Escher, and composer Johann Sebastian Bach.'
+  },
+  {
+    id: 'fic_new_001',
+    title: 'The Hitchhiker\'s Guide to the Galaxy',
+    author: 'Douglas Adams',
+    isbn: '978-0345391803',
+    status: 'available',
+    category: 'Fiction',
+    publishedDate: '1979',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'galaxy thumb',
+    description: 'A comedic science fiction series about the last surviving man following the demolition of Earth.'
+  },
+  {
+    id: 'eng_new_001',
+    title: 'The Design of Everyday Things',
+    author: 'Don Norman',
+    isbn: '978-0465050659',
+    status: 'available',
+    category: 'Engineering', // Could also be Design/Psychology
+    publishedDate: '2013',
+    coverImageUrl: 'https://placehold.co/300x450.png',
+    dataAiHint: 'user interface',
+    description: 'Explores the psychology behind design and usability, emphasizing user-centered design.'
+  }
 ];
 
 export const mockTransactions: Transaction[] = [
@@ -1100,16 +1163,4 @@ export const mockTransactions: Transaction[] = [
     type: 'donate_approve',
     timestamp: addDays(today, -28).toISOString(),
   }
-  // Mock transactions for new electronics books could be added here if needed
-  // For example, for 'elec001' issued to user1:
-  // {
-  //   id: 'txnElec001',
-  //   bookId: 'elec001',
-  //   bookTitle: 'Grob\'s Basic Electronics',
-  //   userId: 'user1',
-  //   userName: 'Aisha Sharma',
-  //   type: 'issue',
-  //   timestamp: addDays(today, -12).toISOString(),
-  //   dueDate: addDays(today, 2).toISOString(),
-  // }
 ];
