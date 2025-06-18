@@ -25,12 +25,12 @@ export default function LandingPage() {
         </div>
 
         <Image 
-          src="https://placehold.co/600x400.png" 
-          alt="Library illustration"
-          data-ai-hint="library students"
+          src="http://pescoe.ac.in/assets/images/PES_Logo.png" 
+          alt={`${COLLEGE_NAME} Logo`}
+          data-ai-hint="college logo"
           width={600} 
           height={400} 
-          className="rounded-lg shadow-xl object-cover"
+          className="rounded-lg shadow-xl object-contain bg-white p-4"
           priority
         />
 
