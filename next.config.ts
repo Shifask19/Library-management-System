@@ -16,6 +16,18 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'http', // Allowing HTTP for this specific domain
+        hostname: 'pescoe.ac.in',
+        port: '',
+        pathname: '/assets/images/**', // Allow any image from this path
+      },
+      { // Added for avatar.vercel.sh used in UserMenu
+        protocol: 'https',
+        hostname: 'avatar.vercel.sh',
+        port: '',
+        pathname: '/**',
+      }
     ],
   },
 };
