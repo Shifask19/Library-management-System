@@ -3,16 +3,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Book, User } from '@/types';
-// import { mockBooks } from '@/lib/mockData'; // Switching to Firestore
 import { BookCard } from '@/components/shared/BookCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, BookOpenCheck, Search, RefreshCcw, Loader2 as SpinnerIcon } from 'lucide-react';
+import { AlertTriangle, BookOpenCheck, Search, RefreshCcw, Loader2 as SpinnerIcon, Undo } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase.ts';
 import { collection, query, where, orderBy, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ConfirmationDialog } from '@/components/shared/ConfirmationDialog';
 
 const RENEWAL_PERIOD_DAYS = 7;
 
@@ -33,6 +33,19 @@ async function logTransaction(transactionData: Omit<import('@/types').Transactio
   }
 }
 
+const isBookOverdue = (book: Book): boolean => {
+  if (book.status === 'issued' && book.issueDetails) {
+    const dueDate = new Date(book.issueDetails.dueDate);
+    const now = new Date();
+    // Compare date parts only
+    const dueDateNormalized = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+    const nowNormalized = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return dueDateNormalized < nowNormalized;
+  }
+  return false;
+};
+
+
 export function IssuedBooksTab({ currentUser }: IssuedBooksTabProps) {
   const [userBooks, setUserBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +56,6 @@ export function IssuedBooksTab({ currentUser }: IssuedBooksTabProps) {
   const fetchIssuedBooks = useCallback(async () => {
     if (!currentUser || !currentUser.id) {
       setIsLoading(false);
-      // Potentially show a message if no user is logged in, or rely on UserDashboardClient to handle this.
       return;
     }
     if (!db) {
@@ -58,7 +70,7 @@ export function IssuedBooksTab({ currentUser }: IssuedBooksTabProps) {
         booksCollection, 
         where("issueDetails.userId", "==", currentUser.id),
         where("status", "==", "issued"),
-        orderBy("issueDetails.dueDate", "asc") // Sort by due date
+        orderBy("issueDetails.dueDate", "asc")
       );
       const querySnapshot = await getDocs(q);
       const booksList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Book));
@@ -99,16 +111,12 @@ export function IssuedBooksTab({ currentUser }: IssuedBooksTabProps) {
       return;
     }
 
-    const currentDueDate = new Date(bookToRenew.issueDetails.dueDate);
-    // Basic check: prevent renewal if already overdue by more than a grace period (e.g. 1 day)
-    // For a stricter rule, check if currentDueDate < today.
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    if (currentDueDate < today) {
-        toast({ title: "Renewal Not Allowed", description: "Overdue books cannot be renewed through this system. Please contact the library.", variant: "destructive" });
+    if (isBookOverdue(bookToRenew)) {
+        toast({ title: "Renewal Not Allowed", description: "Overdue books cannot be renewed. Please contact the library.", variant: "destructive" });
         return;
     }
 
+    const currentDueDate = new Date(bookToRenew.issueDetails.dueDate);
     const newDueDate = new Date(currentDueDate);
     newDueDate.setDate(currentDueDate.getDate() + RENEWAL_PERIOD_DAYS);
 
@@ -132,10 +140,43 @@ export function IssuedBooksTab({ currentUser }: IssuedBooksTabProps) {
         title: "Book Renewed",
         description: `"${bookTitle}" has been renewed. New due date: ${newDueDate.toLocaleDateString()}.`,
       });
-      fetchIssuedBooks(); // Refresh the list
+      fetchIssuedBooks(); 
     } catch (error) {
       console.error("Error renewing book:", error);
       toast({ title: "Renewal Failed", description: "Could not renew the book. Please try again.", variant: "destructive" });
+    }
+  };
+
+  const handleReturnBook = async (bookId: string, bookTitle: string) => {
+    if (!currentUser || !db) {
+      toast({ title: "Error", description: "Cannot return book at this time.", variant: "destructive" });
+      return;
+    }
+
+    const bookRef = doc(db, "books", bookId);
+    try {
+      await updateDoc(bookRef, {
+        status: 'available',
+        issueDetails: null, // Or deleteField() for cleaner removal
+      });
+
+      await logTransaction({
+        bookId: bookId,
+        bookTitle: bookTitle,
+        userId: currentUser.id,
+        userName: currentUser.name || currentUser.email || 'User',
+        type: 'return',
+        notes: `Book returned by user.`
+      });
+
+      toast({
+        title: "Book Returned",
+        description: `Thank you for returning "${bookTitle}".`,
+      });
+      fetchIssuedBooks(); // Refresh the list of issued books
+    } catch (error) {
+      console.error("Error returning book:", error);
+      toast({ title: "Return Failed", description: "Could not return the book. Please try again.", variant: "destructive" });
     }
   };
 
@@ -149,22 +190,22 @@ export function IssuedBooksTab({ currentUser }: IssuedBooksTabProps) {
 
       if (filter === 'all') return true;
       
-      if (!book.issueDetails) return false;
+      if (!book.issueDetails) return false; // Should not happen if status is 'issued'
       const dueDate = new Date(book.issueDetails.dueDate);
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      dueDate.setHours(0,0,0,0);
+      today.setHours(0, 0, 0, 0); 
+      const normalizedDueDate = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
 
-      const diffTime = dueDate.getTime() - today.getTime();
+
+      const diffTime = normalizedDueDate.getTime() - today.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
       if (filter === 'overdue') return diffDays < 0;
       if (filter === 'due_soon') return diffDays >= 0 && diffDays <= 3;
       return true;
-    })
-    // Already sorted by Firestore query: orderBy("issueDetails.dueDate", "asc")
+    });
 
-  if (isLoading && !userBooks.length) { // Show skeleton only on initial load
+  if (isLoading && !userBooks.length) { 
     return (
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -205,21 +246,50 @@ export function IssuedBooksTab({ currentUser }: IssuedBooksTabProps) {
 
       {isLoading && userBooks.length > 0 && <SpinnerIcon className="mx-auto h-8 w-8 animate-spin text-primary my-4" />}
 
-
       {!isLoading && filteredAndSortedBooks.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredAndSortedBooks.map(book => (
             <BookCard 
               key={book.id} 
               book={book}
-              actionLabel="Request Renewal"
-              onAction={() => handleRenewBook(book.id, book.title)}
-              actionDisabled={!currentUser /* Add more complex logic if book is overdue etc. */}
-            />
+            >
+              <div className="space-y-2 w-full">
+                <ConfirmationDialog
+                  triggerButton={
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      disabled={!currentUser || isBookOverdue(book)}
+                    >
+                      <RefreshCcw className="mr-2 h-4 w-4" /> Request Renewal
+                    </Button>
+                  }
+                  title="Confirm Book Renewal"
+                  description={`Are you sure you want to renew "${book.title}"? The due date will be extended by ${RENEWAL_PERIOD_DAYS} days.`}
+                  onConfirm={() => handleRenewBook(book.id, book.title)}
+                  confirmText="Yes, Renew"
+                />
+                <ConfirmationDialog
+                  triggerButton={
+                    <Button
+                      className="w-full"
+                      variant="default"
+                      disabled={!currentUser}
+                    >
+                      <Undo className="mr-2 h-4 w-4" /> Return Book
+                    </Button>
+                  }
+                  title="Confirm Book Return"
+                  description={`Are you sure you want to return "${book.title}"?`}
+                  onConfirm={() => handleReturnBook(book.id, book.title)}
+                  confirmText="Yes, Return"
+                />
+              </div>
+            </BookCard>
           ))}
         </div>
       ) : (
-        !isLoading && ( // Only show "No Books" if not loading
+        !isLoading && ( 
           <div className="text-center py-12 rounded-lg bg-card border">
             {searchTerm || filter !== 'all' ? (
               <>
