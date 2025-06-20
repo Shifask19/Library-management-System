@@ -1,8 +1,9 @@
+
 import { AppLogo } from "./AppLogo";
 import { UserMenu } from "./UserMenu";
 import type { User } from "@/types";
 import { sampleAdmin } from "@/types"; // Using sample for now
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"; // Added SheetHeader, SheetTitle
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 
@@ -16,7 +17,7 @@ interface MainNavbarProps {
 // For now, let's assume user data is passed as a prop or fetched client-side.
 export function MainNavbar({ userRole, sidebarNav }: MainNavbarProps) {
   // In a real app, user would be fetched from context or server session
-  const user: User | null = userRole === 'admin' ? sampleAdmin : { id: 'user-mock', email: 'user@pes.edu', role: 'user', name: 'Mock User' };
+  const user: User | null = userRole === 'admin' ? sampleAdmin : { id: 'user1', email: 'user1@example.com', role: 'user', name: 'Student of PES College (Mock)' };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -30,11 +31,14 @@ export function MainNavbar({ userRole, sidebarNav }: MainNavbarProps) {
                     <span className="sr-only">Toggle Menu</span>
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-72 p-0 pt-8 bg-sidebar">
-                  <div className="p-4 mb-4">
+                <SheetContent side="left" className="w-72 p-0 bg-sidebar">
+                  <SheetHeader className="p-4 border-b border-sidebar-border">
+                    <SheetTitle>Menu</SheetTitle>
+                  </SheetHeader>
+                  <div className="p-4 border-b border-sidebar-border"> {/* Consistent padding and border for AppLogo */}
                     <AppLogo />
                   </div>
-                  {sidebarNav}
+                  {sidebarNav} {/* sidebarNav usually has its own ScrollArea and padding */}
                 </SheetContent>
               </Sheet>
           </div>
