@@ -41,6 +41,13 @@
       "fields": [
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "email", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
