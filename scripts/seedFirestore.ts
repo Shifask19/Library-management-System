@@ -1,7 +1,8 @@
+
 // scripts/seedFirestore.ts
 import { db } from '../src/lib/firebase';
 import { mockBooks } from '../src/lib/mockData';
-import { collection, addDoc, getDocs, query, where, writeBatch } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, where, writeBatch, doc } from "firebase/firestore";
 import type { Book } from '../src/types';
 
 async function seedFirestore() {
@@ -71,12 +72,16 @@ async function seedFirestore() {
   console.log("--------------------------");
 }
 
-seedFirestore()
-  .then(() => {
-    console.log("Firestore seeding process finished successfully.");
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error("Unhandled error during seeding process:", error);
-    process.exit(1);
-  });
+// This check ensures the script only runs when executed directly from the command line,
+// and not when imported by another module (like the Next.js server).
+if (require.main === module) {
+  seedFirestore()
+    .then(() => {
+      console.log("Firestore seeding process finished successfully.");
+      process.exit(0);
+    })
+    .catch((error) => {
+      console.error("Unhandled error during seeding process:", error);
+      process.exit(1);
+    });
+}
