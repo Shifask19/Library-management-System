@@ -95,7 +95,7 @@ Start the Next.js development server:
 npm run dev
 ```
 
-The application should now be running on [http://localhost:9002](http://localhost:9002).
+The application should now be running on local host.
 
 ## Available Scripts
 
