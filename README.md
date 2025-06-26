@@ -1,4 +1,4 @@
-# Firebase Studio
+LIBRARY MANAGEMENT SYSTEM
 
 This is a NextJS starter in Firebase Studio.
 
